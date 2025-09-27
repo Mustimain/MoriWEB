@@ -10,5 +10,9 @@ namespace MoriWEB.Models
         public LookupType LookupType { get; set; }
         public DateTime CreateDate { get; set; } = DateTime.Now;
 
+        public ICollection<Product> Products { get; set; } = new List<Product>();
+
+        // EKLENDİ: Kasa hareketleri ile ilişkiyi tutmak için
+        public ICollection<CashTransaction> Transactions { get; set; } = new List<CashTransaction>();
     }
 }

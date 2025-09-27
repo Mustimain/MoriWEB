@@ -9,6 +9,12 @@ namespace MoriWEB.Models
 
         // TransactionType double yerine enum/int olmalı (örn: 1=Giriş, 2=Çıkış):
         public int? TransactionType { get; set; }
+        // Satış ve Giriş referansları (NAVIGATION EKLENDİ)
+        public int? ProductSalesId { get; set; }
+        public ProductSales? ProductSales { get; set; }   // <—
+
+        public int? ProductEntryId { get; set; }
+        public ProductEntry? ProductEntry { get; set; }   // <—
 
         public int? CashTransactionTypeId { get; set; }
         public Lookup? CashTransactionType { get; set; }
@@ -16,7 +22,6 @@ namespace MoriWEB.Models
         [Column(TypeName = "decimal(18,2)")] public decimal? Amount { get; set; }
         [MaxLength(512)] public string? Description { get; set; }
         public DateTime CreateDate { get; set; } = DateTime.Now;
-
 
     }
 }

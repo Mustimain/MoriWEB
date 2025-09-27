@@ -23,7 +23,8 @@ namespace MoriWEB.Models
         public int? PaymentTypeId { get; set; }
         public Lookup? PaymentType { get; set; }
         public DateTime CreateDate { get; set; } = DateTime.Now;
-        public ICollection<Payment> Payments { get; set; } = new List<Payment>();
+        [NotMapped] public decimal? PaidAmount { get; set; }
+
 
     }
 }

@@ -14,7 +14,6 @@ namespace MoriWEB.DatabaseContext
         public DbSet<Product> Products => Set<Product>();
         public DbSet<ProductEntry> ProductEntries => Set<ProductEntry>();
         public DbSet<ProductSales> ProductSales => Set<ProductSales>();
-        public DbSet<Payment> Payments => Set<Payment>();
         public DbSet<Customer> Customers => Set<Customer>();
         public DbSet<CashTransaction> CashTransactions => Set<CashTransaction>();
 
@@ -59,12 +58,6 @@ namespace MoriWEB.DatabaseContext
                 e.Property(p => p.SalesDiscount).HasPrecision(18, 2);
                 e.Property(p => p.NetPrice).HasPrecision(18, 2);
                 e.Property(p => p.TotalPrice).HasPrecision(18, 2);
-            });
-
-            mb.Entity<Payment>(e =>
-            {
-                e.Property(p => p.PaymentAmount).HasPrecision(18, 2);
-                e.Property(p => p.RemainingBalance).HasPrecision(18, 2);
             });
 
             mb.Entity<CashTransaction>(e =>
@@ -118,11 +111,6 @@ namespace MoriWEB.DatabaseContext
             mb.Entity<ProductSales>()
               .HasOne(ps => ps.PaymentType).WithMany().HasForeignKey(ps => ps.PaymentTypeId)
               .OnDelete(DeleteBehavior.SetNull);
-
-            // Payment -> ProductSales
-            mb.Entity<Payment>()
-              .HasOne(p => p.ProductSales).WithMany(ps => ps.Payments).HasForeignKey(p => p.ProductSalesId)
-              .OnDelete(DeleteBehavior.Cascade);
 
             // CashTransaction -> Lookup(CashTransactionType)
             mb.Entity<CashTransaction>()

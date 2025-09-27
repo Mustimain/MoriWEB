@@ -1,96 +1,151 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+﻿@{
+    var ctrl = (ViewContext.RouteData.Values["controller"]?.ToString() ?? "").ToLower();
+    var act = (ViewContext.RouteData.Values["action"]?.ToString() ?? "").ToLower();
+    bool IsActive(string c, string a = "") =>
+        string.Equals(ctrl, c, StringComparison.OrdinalIgnoreCase) &&
+        (string.IsNullOrEmpty(a) || string.Equals(act, a, StringComparison.OrdinalIgnoreCase));
+}
+<!DOCTYPE html>
+<html lang="tr">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>@ViewData["Title"] - MoriWEB</title>
+
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/MoriWEB.styles.css" asp-append-version="true" />
-
 </head>
-<body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-dark bg-dark border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand fw-bold" asp-area="" asp-controller="Product" asp-action="Products">MoriWEB</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
-                        aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
+<body class="bg-body-tertiary">
 
-                <div class="collapse navbar-collapse" id="mainNavbar">
-                    <ul class="navbar-nav me-auto mb-2 mb-sm-0">
+    <nav class="navbar navbar-expand-lg navbar-dark topbar shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" asp-controller="Product" asp-action="Products">
+                <i class="bi bi-gem"></i> MoriWEB
+            </a>
 
-                 
-                        <!-- Ürünler -->
-                        <li class="nav-item">
-                            <a class="nav-link text-white" asp-controller="Product" asp-action="Products">
-                                <i class="bi bi-people"></i> Ürün Oluştur
-                            </a>
-                        </li>
-                        <!-- Stok Giriş -->
-                        <li class="nav-item">
-                            <a class="nav-link text-white" asp-controller="ProductEntry" asp-action="ProductEntries">
-                                <i class="bi bi-people"></i> Ürün Stok Girişi Yap
-                            </a>
-                        </li> 
-                        <!-- Satıs Yap -->
-                        <li class="nav-item">
-                            <a class="nav-link text-white" asp-controller="ProductSale" asp-action="ProductSales">
-                                <i class="bi bi-people"></i> Satış Yap
-                            </a>
-                        </li>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+                    aria-controls="mainNav" aria-expanded="false" aria-label="Menüyü Aç/Kapat">
+                <span class="navbar-toggler-icon"></span>
+            </button>
 
-                        <!-- Müşteri Ekle -->
-                        <li class="nav-item">
-                            <a class="nav-link text-white" asp-controller="Customer" asp-action="Customers">
-                                <i class="bi bi-people"></i> Müşteri Ekle
-                            </a>
-                        </li>
-                        <!-- Ürünler -->
-                        <li class="nav-item">
-                            <a class="nav-link text-white" asp-controller="Category" asp-action="Categories">
-                                <i class="bi bi-box-seam"></i> Kategori Ekle
-                            </a>
-                        </li>
+            <div class="collapse navbar-collapse" id="mainNav">
+                <ul class="navbar-nav ms-3 nav-compact">
+                    <li class="nav-item">
+                        <a class="nav-link text-white" asp-controller="Product" asp-action="Products">
+                            <i class="bi bi-box-seam"></i> Ürün Oluştur
+                        </a>
+                    </li>
 
-                        <!-- Ödeme -->
-                        <li class="nav-item">
-                            <a class="nav-link text-white" asp-controller="Payment" asp-action="Payments">
-                                <i class="bi bi-credit-card"></i> Ödeme Yap
-                            </a>
-                        </li>
-                 
-                        <!-- Hesabım -->
-                        <li class="nav-item">
-                            <a class="nav-link text-white" asp-controller="Account" asp-action="MyAccount">
-                                <i class="bi bi-person-circle"></i> Kasa
-                            </a>
-                        </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" asp-controller="ProductEntry" asp-action="ProductEntries">
+                            <i class="bi bi-arrow-down-square"></i> Ürün Stok Girişi Yap
+                        </a>
+                    </li>
 
-                    </ul>
-                </div>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" asp-controller="ProductSale" asp-action="ProductSales">
+                            <i class="bi bi-arrow-up-square"></i> Satış Yap
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link text-white" asp-controller="Customer" asp-action="Customers">
+                            <i class="bi bi-people"></i> Müşteri Ekle
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link text-white" asp-controller="Category" asp-action="Categories">
+                            <i class="bi bi-tags"></i> Kategori Ekle
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link text-white" asp-controller="Account" asp-action="MyAccount">
+                            <i class="bi bi-cash-coin"></i> Kasa
+                        </a>
+                    </li>
+                </ul>
+
             </div>
-        </nav>
-    </header>
+        </div>
+    </nav>
 
-
-    <div class="container">
+    <div class="container my-4">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2025 - MoriWEB - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+    <footer class="footer fixed-bottom bg-white border-top">
+        <div class="container text-muted small py-2">
+            &copy; @DateTime.Now.Year - MoriWEB
         </div>
     </footer>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-
     @await RenderSectionAsync("Scripts", required: false)
+
+    <style>
+        body {
+            padding-bottom: 56px;
+        }
+
+        .topbar {
+            background: linear-gradient(90deg, #0b2b4a 0%, #0d6efd 55%, #0a58ca 100%);
+        }
+
+        .navbar-brand {
+            letter-spacing: .3px;
+        }
+
+        .navbar .nav-link {
+            color: rgba(255,255,255,.9);
+            padding: .6rem .9rem;
+            border-radius: .5rem;
+        }
+
+            .navbar .nav-link:hover {
+                color: #fff;
+                background: rgba(255,255,255,.12);
+            }
+
+            .navbar .nav-link.active {
+                color: #fff;
+                background: rgba(255,255,255,.2);
+                box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
+            }
+
+            .navbar .nav-link i {
+                width: 1.2rem;
+                text-align: center;
+            }
+
+        .dropdown-menu {
+            border-radius: .75rem;
+        }
+
+        .navbar .nav-compact {
+            gap: .45rem; /* <li>’ler arası */
+        }
+
+            /* Linklerin iç dolgusu daha kompakt */
+            .navbar .nav-compact .nav-link {
+                padding: .35rem .6rem; /* sağ/sol daha dar */
+                display: inline-flex;
+                align-items: center;
+                line-height: 1.2;
+            }
+
+                /* İkon ile başlık arasında hafif boşluk */
+                .navbar .nav-compact .nav-link i {
+                    margin-right: .4rem; /* ikon–metin arası boşluk */
+                    line-height: 1;
+                }
+    </style>
 </body>
 </html>

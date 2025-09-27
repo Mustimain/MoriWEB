@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\musti\\Desktop\\MoriWEB\\MoriWEB\\MoriWEB.csproj": {}
+    "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\MoriWEB.csproj": {}
   },
   "projects": {
-    "C:\\Users\\musti\\Desktop\\MoriWEB\\MoriWEB\\MoriWEB.csproj": {
+    "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\MoriWEB.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\musti\\Desktop\\MoriWEB\\MoriWEB\\MoriWEB.csproj",
+        "projectUniqueName": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\MoriWEB.csproj",
         "projectName": "MoriWEB",
-        "projectPath": "C:\\Users\\musti\\Desktop\\MoriWEB\\MoriWEB\\MoriWEB.csproj",
+        "projectPath": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\MoriWEB.csproj",
         "packagesPath": "C:\\Users\\musti\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\musti\\Desktop\\MoriWEB\\MoriWEB\\obj\\",
+        "outputPath": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
