@@ -1,0 +1,406 @@
+﻿@{
+    ViewData["Title"] = "Stok Girişleri";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h3 class="mb-0">Stok Girişleri</h3>
+            <small class="text-muted">Soldan giriş seç → sağda güncelle/sil. Seçmeden form doldur → yeni stok girişi oluştur.</small>
+        </div>
+        <span class="badge rounded-pill bg-secondary-subtle text-secondary" id="listCount">0</span>
+    </div>
+
+    <div class="row g-3">
+        <!-- SOL: Liste (arama) -->
+        <div class="col-12 col-lg-5">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <input id="searchBox" type="text" class="form-control" placeholder="Ara: ürün adı/kodu, firma adı/kodu, stok kodu">
+                    </div>
+
+                    <div id="entryList" class="list-group list-group-flush border rounded" style="max-height: 65vh; overflow:auto;">
+                        @* JS ile doldurulacak *@
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SAĞ: Form -->
+        <div class="col-12 col-lg-7">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-info bg-opacity-10 p-2">
+                                <i class="bi bi-arrow-down-square fs-5 text-info"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0" id="formTitle">Yeni Stok Girişi</h5>
+                                <small class="text-muted" id="formSub">Bilgileri doldurun ve Kaydet’e basın.</small>
+                            </div>
+                        </div>
+                        <span class="badge text-bg-light border" id="selectedIdBadge" style="display:none;">ID:</span>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Firma</label>
+                            <select id="CompanyId" class="form-select">
+                                <option value="">Seçiniz...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ürün</label>
+                            <select id="ProductId" class="form-select">
+                                <option value="">Seçiniz...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Tarih</label>
+                            <input id="CreateDate" type="date" class="form-control">
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Miktar</label>
+                            <input id="Amount" type="number" min="0" step="1" class="form-control" value="1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Alış Fiyat</label>
+                            <input id="PurchasePrice" type="number" min="0" step="0.01" class="form-control" value="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">İskonto (%)</label>
+                            <input id="PurchaseDiscount" type="number" min="0" max="100" step="0.01" class="form-control" value="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Etiket Fiyat</label>
+                            <input id="SalesPrice" type="number" min="0" step="0.01" class="form-control" value="0">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Net Tutar</label>
+                            <input id="NetPrice" class="form-control" readonly>
+                        </div>
+
+                        <div class="col-12 d-flex gap-2 justify-content-end mt-2">
+                            <button type="button" class="btn btn-outline-secondary" id="btnClear">
+                                <i class="bi bi-plus-circle"></i> Yeni Kayıt
+                            </button>
+                            <button type="button" class="btn btn-primary" id="btnSave">
+                                <i class="bi bi-save2"></i> Kaydet
+                            </button>
+                            <button type="button" class="btn btn-success d-none" id="btnUpdate">
+                                <i class="bi bi-arrow-repeat"></i> Güncelle
+                            </button>
+                            <button type="button" class="btn btn-outline-danger d-none" id="btnDelete">
+                                <i class="bi bi-trash"></i> Sil
+                            </button>
+                        </div>
+                    </div> <!-- /row -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // --------- Helpers ---------
+        function g(o, ...keys) { for (const k of keys) { if (o && o[k] != null) return o[k]; } return ""; }
+        function refreshCount() {
+            const count = document.querySelectorAll('#entryList .entry-item').length;
+            document.getElementById('listCount').innerText = count;
+        }
+        function normalizeDateForInput(v) {
+            if (!v) return "";
+            if (typeof v === "string") { return v.length >= 10 ? v.substring(0, 10) : v; }
+            if (v instanceof Date) {
+                const yyyy = v.getFullYear(); const mm = String(v.getMonth() + 1).padStart(2, '0'); const dd = String(v.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            }
+            return "";
+        }
+
+        // --------- Form refs ---------
+        const idBadge = document.getElementById('selectedIdBadge');
+        const formTitle = document.getElementById('formTitle');
+        const formSub = document.getElementById('formSub');
+
+        const btnClear = document.getElementById('btnClear');
+        const btnSave = document.getElementById('btnSave');
+        const btnUpdate = document.getElementById('btnUpdate');
+        const btnDelete = document.getElementById('btnDelete');
+
+        // StockCode formdan kaldırıldığı için fields içinde YOK
+        const fields = ["CompanyId", "ProductId", "CreateDate", "Amount", "PurchasePrice", "PurchaseDiscount", "SalesPrice", "NetPrice"];
+
+        function setSelected(id) {
+            const has = !!id && id > 0;
+            if (has) {
+                idBadge.style.display = 'inline-block';
+                idBadge.textContent = `ID:${id}`;
+                formTitle.textContent = 'Stok Girişi Güncelle';
+                formSub.textContent = 'Düzenleyip Güncelle/Sil yapabilirsiniz.';
+                btnClear.classList.add('d-none');
+                btnSave.classList.add('d-none');
+                btnUpdate.classList.remove('d-none');
+                btnDelete.classList.remove('d-none');
+            } else {
+                idBadge.style.display = 'none';
+                idBadge.textContent = '';
+                formTitle.textContent = 'Yeni Stok Girişi';
+                formSub.textContent = 'Bilgileri doldurun ve Kaydet’e basın.';
+                btnClear.classList.remove('d-none');
+                btnSave.classList.remove('d-none');
+                btnUpdate.classList.add('d-none');
+                btnDelete.classList.add('d-none');
+            }
+        }
+        function getSelectedId() {
+            const m = (idBadge.textContent || "").match(/ID:\s*(\d+)/i);
+            return m ? parseInt(m[1]) : 0;
+        }
+        function setForm(obj) {
+            const map = {
+                CompanyId: ['companyId', 'CompanyId'],
+                ProductId: ['productId', 'ProductId'],
+                CreateDate: ['createDate', 'CreateDate'],
+                Amount: ['amount', 'Amount'],
+                PurchasePrice: ['purchasePrice', 'PurchasePrice'],
+                PurchaseDiscount: ['purchaseDiscount', 'PurchaseDiscount'],
+                SalesPrice: ['salesPrice', 'SalesPrice'],
+                NetPrice: ['netPrice', 'NetPrice']
+            };
+            for (const [k, keys] of Object.entries(map)) {
+                const el = document.getElementById(k); if (!el) continue;
+                let val = g(obj, ...keys);
+                if (k === 'CreateDate') val = normalizeDateForInput(val);
+                el.value = (val ?? '') === null ? '' : val;
+            }
+        }
+        function getForm() {
+            const toInt = v => v === "" ? 0 : parseInt(v, 10);
+            const toDec = v => v === "" ? 0 : parseFloat(v);
+            return {
+                CompanyId: toInt(document.getElementById('CompanyId')?.value ?? ""),
+                ProductId: toInt(document.getElementById('ProductId')?.value ?? ""),
+                CreateDate: document.getElementById('CreateDate')?.value ?? "",
+                Amount: toDec(document.getElementById('Amount')?.value ?? "0"),
+                PurchasePrice: toDec(document.getElementById('PurchasePrice')?.value ?? "0"),
+                PurchaseDiscount: toDec(document.getElementById('PurchaseDiscount')?.value ?? "0"),
+                SalesPrice: toDec(document.getElementById('SalesPrice')?.value ?? "0"),
+                NetPrice: toDec(document.getElementById('NetPrice')?.value ?? "0")
+            };
+        }
+        function clearForm() {
+            setForm({});
+            setSelected(0);
+            document.querySelectorAll('.entry-item.active').forEach(x => x.classList.remove('active'));
+            // bugünün tarihi
+            const d = new Date(); const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0');
+            document.getElementById('CreateDate').value = `${yyyy}-${mm}-${dd}`;
+            document.getElementById('NetPrice').value = "";
+        }
+
+        // Net hesap
+        function calcNet() {
+            const amt = parseFloat(document.getElementById('Amount').value || "0");
+            const prc = parseFloat(document.getElementById('PurchasePrice').value || "0");
+            const dsc = parseFloat(document.getElementById('PurchaseDiscount').value || "0");
+            const net = (amt * prc) * (1 - (dsc / 100));
+            document.getElementById('NetPrice').value = isFinite(net) ? net.toFixed(2) : "0.00";
+        }
+        ['Amount', 'PurchasePrice', 'PurchaseDiscount'].forEach(id => {
+            document.getElementById(id)?.addEventListener('input', calcNet);
+        });
+
+        function tl(v) {
+            const n = Number(v || 0);
+            return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // Eski renderList'i bununla tamamen değiştir
+        function renderList(items) {
+            const host = document.getElementById('entryList');
+            host.innerHTML = "";
+            items.forEach(e => {
+                const id = g(e, 'id', 'Id');
+                const pCd = g(e, 'productCode', 'ProductCode') || '';
+                const pNm = g(e, 'productName', 'ProductName') || '(Ürün yok)';
+                const cNm = g(e, 'companyName', 'CompanyName') || '';
+                const amt = g(e, 'amount', 'Amount') || 0;
+                const buy = g(e, 'purchasePrice', 'PurchasePrice') || 0;
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'list-group-item list-group-item-action entry-item p-3';
+
+                btn.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start w-100">
+                  <div class="me-3">
+                    <div class="fw-semibold">
+                      <span class="text-muted">Kod:</span> ${pCd}
+                      <span class="mx-2"></span>
+                      <span>${pNm}</span>
+                    </div>
+                    <div class="small text-secondary mt-1 d-flex flex-wrap gap-3">
+                      <span><i class="bi bi-building me-1"></i>Firma: <strong class="text-body">${cNm}</strong></span>
+                      <span><i class="bi bi-box-seam me-1"></i>Miktar: <strong class="text-body">${amt}</strong></span>
+                      <span><i class="bi bi-cash-coin me-1"></i>Alış: <strong class="text-body">${tl(buy)}</strong></span>
+                    </div>
+                  </div>
+                  <span class="badge id-badge align-self-start">ID:${id}</span>
+                </div>
+              `;
+
+                btn.addEventListener('click', () => {
+                    const wasActive = btn.classList.contains('active');
+                    document.querySelectorAll('.entry-item.active').forEach(x => x.classList.remove('active'));
+                    if (wasActive) { clearForm(); setSelected(0); return; }
+                    btn.classList.add('active');
+                    setForm(e);
+                    setSelected(id);
+                });
+
+                host.appendChild(btn);
+            });
+            refreshCount();
+        }
+
+        // --------- API ----------
+        async function apiLookups() {
+            const res = await fetch('/ProductEntry/Lookups');
+            if (!res.ok) throw new Error('Lookups alınamadı');
+            return await res.json();
+        }
+        async function apiList(q = "") {
+            const res = await fetch(`/ProductEntry/Search?q=${encodeURIComponent(q)}`);
+            if (!res.ok) throw new Error('Liste alınamadı');
+            return await res.json();
+        }
+        async function apiCreate(model) {
+            const res = await fetch('/ProductEntry/Create', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(model)
+            });
+            if (res.status === 400) { alert('Zorunlu alanları kontrol edin.'); return { ok: false }; }
+            if (!res.ok) { alert('Kayıt başarısız'); return { ok: false }; }
+            return { ok: true, data: await res.json() };
+        }
+        async function apiUpdate(id, model) {
+            const res = await fetch('/ProductEntry/Update', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...model, Id: id })
+            });
+            if (res.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
+            if (res.status === 400) { alert('Zorunlu alanları kontrol edin.'); return { ok: false }; }
+            if (!res.ok) { alert('Güncelleme başarısız'); return { ok: false }; }
+            return { ok: true, data: await res.json() };
+        }
+        async function apiDelete(id) {
+            const res = await fetch('/ProductEntry/Delete', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Id: id })
+            });
+            if (res.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
+            if (res.status === 400) { alert('Geçersiz istek (id).'); return { ok: false }; }
+            if (!res.ok) { alert('Silme başarısız'); return { ok: false }; }
+            return { ok: true };
+        }
+
+        // --------- Davranışlar ----------
+        (async () => {
+            const l = await apiLookups();
+            fillSelect('CompanyId', l.companies);
+            fillSelect('ProductId', l.products);
+
+            const d = new Date(); const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0');
+            document.getElementById('CreateDate').value = `${yyyy}-${mm}-${dd}`;
+
+            const items = await apiList("");
+            renderList(items);
+            setSelected(0);
+        })();
+
+        document.getElementById('searchBox')?.addEventListener('input', async function () {
+            const items = await apiList(this.value || "");
+            renderList(items);
+            setSelected(0);
+        });
+
+        btnClear?.addEventListener('click', () => { clearForm(); setSelected(0); });
+
+        btnSave?.addEventListener('click', async () => {
+            const body = getForm();
+            const r = await apiCreate(body);
+            if (!r.ok) return;
+            alert('Stok girişi oluşturuldu.');
+            const items = await apiList(document.getElementById('searchBox')?.value || "");
+            renderList(items);
+            clearForm(); setSelected(0);
+        });
+
+        btnUpdate?.addEventListener('click', async () => {
+            const id = getSelectedId(); if (!id) { alert('Seçim yok'); return; }
+            const body = getForm();
+            const r = await apiUpdate(id, body);
+            if (!r.ok) return;
+            alert('Güncellendi.');
+            const items = await apiList(document.getElementById('searchBox')?.value || "");
+            renderList(items);
+            clearForm(); setSelected(0);
+        });
+
+        btnDelete?.addEventListener('click', async () => {
+            const id = getSelectedId(); if (!id) { alert('Seçim yok'); return; }
+            if (!confirm('Silmek istediğinize emin misiniz?')) return;
+            const r = await apiDelete(id);
+            if (!r.ok) return;
+            const active = document.querySelector('#entryList .entry-item.active');
+            if (active) { active.parentElement.removeChild(active); refreshCount(); }
+            clearForm(); setSelected(0);
+        });
+
+        // Select doldurucu
+        function fillSelect(id, items) {
+            const sel = document.getElementById(id); if (!sel) return;
+            sel.innerHTML = `<option value="">Seçiniz...</option>` + (items || []).map(x => `<option value="${x.id}">${x.code} - ${x.name}</option>`).join('');
+        }
+    </script>
+    <style>
+        .entry-item.active {
+            background-color: #e7f1ff !important;
+            color: inherit !important;
+            border-color: #cfe2ff !important;
+        }
+
+            .entry-item.active * {
+                color: inherit !important;
+            }
+
+        .id-badge {
+            color: #000 !important;
+            background-color: #f8f9fa !important;
+            border: 1px solid #dee2e6 !important;
+            font-weight: 500;
+        }
+
+        .avatar {
+            font-weight: 600;
+        }
+
+        @@media (max-width: 991.98px) {
+            #entryList {
+                max-height: 40vh;
+            }
+        } 
+  .id-badge{
+    color:#000 !important;
+    background-color:#f8f9fa !important;
+    border:1px solid #dee2e6 !important;
+    font-weight:500;
+  }
+
+
+    </style>
+}

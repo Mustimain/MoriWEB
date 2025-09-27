@@ -1,0 +1,96 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - MoriWEB</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/MoriWEB.styles.css" asp-append-version="true" />
+
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-dark bg-dark border-bottom box-shadow mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand fw-bold" asp-area="" asp-controller="Product" asp-action="Products">MoriWEB</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
+                        aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="mainNavbar">
+                    <ul class="navbar-nav me-auto mb-2 mb-sm-0">
+
+                 
+                        <!-- Ürünler -->
+                        <li class="nav-item">
+                            <a class="nav-link text-white" asp-controller="Product" asp-action="Products">
+                                <i class="bi bi-people"></i> Ürün Oluştur
+                            </a>
+                        </li>
+                        <!-- Stok Giriş -->
+                        <li class="nav-item">
+                            <a class="nav-link text-white" asp-controller="ProductEntry" asp-action="ProductEntries">
+                                <i class="bi bi-people"></i> Ürün Stok Girişi Yap
+                            </a>
+                        </li> 
+                        <!-- Satıs Yap -->
+                        <li class="nav-item">
+                            <a class="nav-link text-white" asp-controller="ProductSale" asp-action="ProductSales">
+                                <i class="bi bi-people"></i> Satış Yap
+                            </a>
+                        </li>
+
+                        <!-- Müşteri Ekle -->
+                        <li class="nav-item">
+                            <a class="nav-link text-white" asp-controller="Customer" asp-action="Customers">
+                                <i class="bi bi-people"></i> Müşteri Ekle
+                            </a>
+                        </li>
+                        <!-- Ürünler -->
+                        <li class="nav-item">
+                            <a class="nav-link text-white" asp-controller="Category" asp-action="Categories">
+                                <i class="bi bi-box-seam"></i> Kategori Ekle
+                            </a>
+                        </li>
+
+                        <!-- Ödeme -->
+                        <li class="nav-item">
+                            <a class="nav-link text-white" asp-controller="Payment" asp-action="Payments">
+                                <i class="bi bi-credit-card"></i> Ödeme Yap
+                            </a>
+                        </li>
+                 
+                        <!-- Hesabım -->
+                        <li class="nav-item">
+                            <a class="nav-link text-white" asp-controller="Account" asp-action="MyAccount">
+                                <i class="bi bi-person-circle"></i> Kasa
+                            </a>
+                        </li>
+
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2025 - MoriWEB - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
