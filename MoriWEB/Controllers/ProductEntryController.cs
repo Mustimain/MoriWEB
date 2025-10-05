@@ -10,7 +10,6 @@ namespace MoriWEB.Controllers
         private readonly MoriDbContext _db;
         public ProductEntryController(MoriDbContext db) { _db = db; }
 
-        // SAYFA
         [HttpGet]
         public IActionResult ProductEntries() => View();
 
@@ -18,7 +17,6 @@ namespace MoriWEB.Controllers
         [HttpGet]
         public async Task<IActionResult> Lookups()
         {
-            // Company = LookupType.Company
             var companies = await _db.Lookups.AsNoTracking()
                 .Where(x => x.LookupType == LookupType.Company)
                 .OrderBy(x => x.Name)
@@ -34,7 +32,6 @@ namespace MoriWEB.Controllers
         }
 
         // Liste / Arama
-        // q: ürün kodu, adı, şirket adı/kodu, stok kodu, tarih metni
         [HttpGet]
         public async Task<IActionResult> Search(string? q)
         {
@@ -72,20 +69,24 @@ namespace MoriWEB.Controllers
             return Json(list);
         }
 
-        // Create — dto olarak ProductEntry yakalar
+        // Create — doğrulamalar + Kasa hareketi
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] ProductEntry dto)
         {
             if (dto == null) return BadRequest("Geçersiz veri");
             if (dto.ProductId <= 0 || dto.CompanyId <= 0) return BadRequest("Ürün ve Firma zorunludur.");
+            if ((dto.Amount ?? 0) <= 0) return BadRequest("Miktar 0'dan büyük olmalıdır.");
+            if ((dto.PurchasePrice ?? 0) <= 0) return BadRequest("Alış fiyatı 0'dan büyük olmalıdır.");
+            if ((dto.SalesPrice ?? 0) <= 0) return BadRequest("Etiket fiyatı 0'dan büyük olmalıdır.");
+            if ((dto.PurchaseDiscount ?? 0) < 0) return BadRequest("İskonto 0'dan küçük olamaz.");
 
-            // Ürün & Firma doğrula
             var product = await _db.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == dto.ProductId);
             if (product == null) return BadRequest("Ürün bulunamadı.");
-            var company = await _db.Lookups.AsNoTracking().FirstOrDefaultAsync(l => l.Id == dto.CompanyId && l.LookupType == LookupType.Company);
+            var company = await _db.Lookups.AsNoTracking()
+                .FirstOrDefaultAsync(l => l.Id == dto.CompanyId && l.LookupType == LookupType.Company);
             if (company == null) return BadRequest("Firma bulunamadı.");
 
-            // NetPrice hesapla (Amount * PurchasePrice * (1 - disc/100))
+            // NetPrice = Amount * PurchasePrice * (1 - disc/100)
             var amount = (decimal)(dto.Amount ?? 0);
             var price = dto.PurchasePrice ?? 0;
             var disc = dto.PurchaseDiscount ?? 0;
@@ -106,25 +107,39 @@ namespace MoriWEB.Controllers
             _db.ProductEntries.Add(entity);
             await _db.SaveChangesAsync();
 
+            // Kasa hareketi (Çıkış)
+            var cashTypeId = await FindCashTransactionTypeId("STOK_GIRIS"); // bulunamazsa null döner
+            var cash = new CashTransaction
+            {
+                TransactionType = 1, // 1=Giriş, 2=Çıkış
+                ProductEntryId = entity.Id,
+                CashTransactionTypeId = cashTypeId,
+                Amount = net,
+                Description = $"Stok Girişi",
+                CreateDate = entity.CreateDate
+            };
+            _db.CashTransactions.Add(cash);
+            await _db.SaveChangesAsync();
+
             return Ok(new { ok = true, id = entity.Id });
         }
 
-        // Update — Code/StockCode istenirse değiştirilebilir; zorunlu değil.
+        // Update — doğrulamalar + Kasa hareketini eşitle
         [HttpPost]
         public async Task<IActionResult> Update([FromBody] ProductEntry dto)
         {
             if (dto == null || dto.Id <= 0) return BadRequest("Geçersiz Id");
+            if (dto.ProductId <= 0 || dto.CompanyId <= 0) return BadRequest("Ürün ve Firma zorunludur.");
+            if ((dto.Amount ?? 0) <= 0) return BadRequest("Miktar 0'dan büyük olmalıdır.");
+            if ((dto.PurchasePrice ?? 0) <= 0) return BadRequest("Alış fiyatı 0'dan büyük olmalıdır.");
+            if ((dto.SalesPrice ?? 0) <= 0) return BadRequest("Etiket fiyatı 0'dan büyük olmalıdır.");
+            if ((dto.PurchaseDiscount ?? 0) < 0) return BadRequest("İskonto 0'dan küçük olamaz.");
 
             var e = await _db.ProductEntries.FirstOrDefaultAsync(x => x.Id == dto.Id);
             if (e == null) return NotFound();
 
-            if (dto.ProductId <= 0 || dto.CompanyId <= 0) return BadRequest("Ürün ve Firma zorunludur.");
-
-            // doğrula
-            if (!await _db.Products.AnyAsync(p => p.Id == dto.ProductId))
-                return BadRequest("Ürün bulunamadı.");
-            if (!await _db.Lookups.AnyAsync(l => l.Id == dto.CompanyId && l.LookupType == LookupType.Company))
-                return BadRequest("Firma bulunamadı.");
+            if (!await _db.Products.AnyAsync(p => p.Id == dto.ProductId)) return BadRequest("Ürün bulunamadı.");
+            if (!await _db.Lookups.AnyAsync(l => l.Id == dto.CompanyId && l.LookupType == LookupType.Company)) return BadRequest("Firma bulunamadı.");
 
             e.ProductId = dto.ProductId;
             e.CompanyId = dto.CompanyId;
@@ -141,10 +156,22 @@ namespace MoriWEB.Controllers
             e.CreateDate = dto.CreateDate == default ? e.CreateDate : dto.CreateDate;
 
             await _db.SaveChangesAsync();
+
+            // İlgili kasa hareketini güncelle
+            var cash = await _db.CashTransactions.FirstOrDefaultAsync(c => c.ProductEntryId == e.Id);
+            if (cash != null)
+            {
+                cash.Amount = e.NetPrice;
+                cash.Description = $"Stok Girişi";
+                cash.CreateDate = e.CreateDate;
+                cash.TransactionType = 1;
+                await _db.SaveChangesAsync();
+            }
+
             return Ok(new { ok = true, id = e.Id });
         }
 
-        // Delete — dto ile Id al
+        // Delete — ilgili kasa hareketini de sil
         [HttpPost]
         public async Task<IActionResult> Delete([FromBody] ProductEntry dto)
         {
@@ -153,9 +180,23 @@ namespace MoriWEB.Controllers
             var e = await _db.ProductEntries.FirstOrDefaultAsync(x => x.Id == dto.Id);
             if (e == null) return NotFound();
 
+            var cash = await _db.CashTransactions.Where(c => c.ProductEntryId == e.Id).ToListAsync();
+            if (cash.Count > 0)
+            {
+                _db.CashTransactions.RemoveRange(cash);
+            }
+
             _db.ProductEntries.Remove(e);
             await _db.SaveChangesAsync();
             return Ok(new { ok = true });
+        }
+
+        // "STOK_GIRIS" kodlu kasa hareket tipi varsa Id'sini döndürür; yoksa null.
+        private async Task<int?> FindCashTransactionTypeId(string code)
+        {
+            var ct = await _db.Lookups.AsNoTracking()
+                .FirstOrDefaultAsync(l => l.LookupType == LookupType.CashTransactionType && l.Code == code);
+            return ct?.Id;
         }
     }
 }

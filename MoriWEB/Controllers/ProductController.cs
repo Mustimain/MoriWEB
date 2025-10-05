@@ -5,17 +5,16 @@ using MoriWEB.Models;
 
 namespace MoriWEB.Controllers
 {
-
     public class ProductController : Controller
     {
         private readonly MoriDbContext _db;
         public ProductController(MoriDbContext db) { _db = db; }
 
-        // ==== SAYFA ====
+        // SAYFA
         [HttpGet]
         public IActionResult Products() => View();
 
-        // ==== LOOKUPS (select doldurma) ====
+        // LOOKUPS
         [HttpGet]
         public async Task<IActionResult> Lookups()
         {
@@ -52,6 +51,7 @@ namespace MoriWEB.Controllers
             return Json(new { categories, brands, fabrics, models, colors });
         }
 
+        // LİSTE / ARAMA
         [HttpGet]
         public async Task<IActionResult> Search(string? q)
         {
@@ -88,17 +88,16 @@ namespace MoriWEB.Controllers
             return Json(list);
         }
 
-        // ==== OLUŞTUR (Product dto) ====
-        // Code backend’de otomatik üretilecek; dto.Code dikkate alınmaz.
+        // OLUŞTUR
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Product dto)
         {
             if (dto == null) return BadRequest("Geçersiz veri");
+            if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("Ad zorunlu.");
             if (dto.CategoryId <= 0 || dto.BrandId <= 0 || dto.FabricTypeId <= 0 || dto.ModelId <= 0 || dto.ColorId <= 0)
                 return BadRequest("Kategori/Marka/Kumaş/Model/Renk zorunlu.");
 
             var code = await GenerateStockCodeAsync(dto.CategoryId, dto.BrandId, dto.FabricTypeId, dto.ModelId, dto.ColorId);
-
             if (await _db.Products.AnyAsync(p => p.Code == code))
                 return Conflict(new { message = "Aynı stok kodu zaten var." });
 
@@ -119,17 +118,18 @@ namespace MoriWEB.Controllers
             return Ok(new { ok = true, id = entity.Id, code = entity.Code });
         }
 
-        // ==== GÜNCELLE (Product dto) ====
-        // Code değişmez; diğer alanlar güncellenir.
+        // GÜNCELLE
         [HttpPost]
         public async Task<IActionResult> Update([FromBody] Product dto)
         {
             if (dto == null || dto.Id <= 0) return BadRequest("Geçersiz Id");
+            if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("Ad zorunlu.");
+            if (dto.CategoryId <= 0 || dto.BrandId <= 0 || dto.FabricTypeId <= 0 || dto.ModelId <= 0 || dto.ColorId <= 0)
+                return BadRequest("Kategori/Marka/Kumaş/Model/Renk zorunlu.");
 
             var p = await _db.Products.FirstOrDefaultAsync(x => x.Id == dto.Id);
             if (p == null) return NotFound();
 
-            // Code değişmez
             p.Name = dto.Name?.Trim();
             p.CreateDate = dto.CreateDate == default ? p.CreateDate : dto.CreateDate;
             p.CategoryId = dto.CategoryId;
@@ -142,8 +142,8 @@ namespace MoriWEB.Controllers
             return Ok(new { ok = true, id = p.Id, code = p.Code });
         }
 
-
-        // ==== SİL (Product dto) ====
+        // SİL
+        [HttpPost]
         public async Task<IActionResult> Delete([FromBody] Product dto)
         {
             if (dto == null || dto.Id <= 0) return BadRequest("Geçersiz id");
@@ -156,6 +156,7 @@ namespace MoriWEB.Controllers
             return Ok(new { ok = true });
         }
 
+        // Yardımcı
         private async Task<string> GenerateStockCodeAsync(int categoryId, int brandId, int fabricId, int modelId, int colorId)
         {
             var cat = await _db.Lookups.AsNoTracking().FirstOrDefaultAsync(x => x.Id == categoryId);
@@ -171,30 +172,19 @@ namespace MoriWEB.Controllers
             string c5 = (clr?.Code ?? "CLR").Trim();
 
             var prefix = $"{c1}{c2}{c3}{c4}-{c5}-";
-
-            // Bu prefix ile başlayan tüm kodları çek
             var codes = await _db.Products.AsNoTracking()
                 .Where(p => p.Code != null && p.Code.StartsWith(prefix))
                 .Select(p => p.Code!)
                 .ToListAsync();
 
-            // Var olanların en büyük soneğini bul
             int maxSuffix = 0;
             foreach (var code in codes)
             {
-                // prefix uzunluğundan sonrası sadece sonek (örn: "00012")
                 var tail = code.Length > prefix.Length ? code.Substring(prefix.Length) : "";
-                if (int.TryParse(tail, out var n) && n > maxSuffix)
-                    maxSuffix = n;
+                if (int.TryParse(tail, out var n) && n > maxSuffix) maxSuffix = n;
             }
-
-            var next = maxSuffix + 1;
-            var suffix = next.ToString("D5"); // 00001 formatı
-            return prefix + suffix;           // Örn: KAT-BRD-FAB-MDL.CLR.00001
+            var suffix = (maxSuffix + 1).ToString("D5");
+            return prefix + suffix;
         }
-
     }
-
 }
-
-

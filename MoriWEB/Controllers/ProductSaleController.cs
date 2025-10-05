@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MoriWEB.DatabaseContext;
 using MoriWEB.Models;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace MoriWEB.Controllers
 {
@@ -18,7 +19,7 @@ namespace MoriWEB.Controllers
         [HttpGet]
         public async Task<IActionResult> Lookups()
         {
-            // 1) Müşteriler (Customers)
+            // 1) Müşteriler
             var customers = await _db.Customers.AsNoTracking()
                 .OrderBy(x => x.FirstName).ThenBy(x => x.LastName)
                 .Select(x => new {
@@ -28,7 +29,7 @@ namespace MoriWEB.Controllers
                 })
                 .ToListAsync();
 
-            // 2) Stok girişleri (ProductEntries) + ürün ve firma bilgileri
+            // 2) Stok girişleri (ürün, firma, etiket fiyat)
             var entries = await _db.ProductEntries.AsNoTracking()
                 .Include(e => e.Product)
                 .Include(e => e.Company)
@@ -43,11 +44,11 @@ namespace MoriWEB.Controllers
                     companyName = e.Company != null ? e.Company.Name : null,
                     amount = e.Amount,
                     purchasePrice = e.PurchasePrice,
-                    salesPrice = e.SalesPrice
+                    labelPrice = e.SalesPrice  // <- stok girişindeki etiket
                 })
                 .ToListAsync();
 
-            // 3) Ödeme türleri (Lookups tablosundan PaymentType)
+            // 3) Ödeme türleri
             var paymentTypes = await _db.Lookups.AsNoTracking()
                 .Where(l => l.LookupType == LookupType.PaymentType)
                 .OrderBy(l => l.Name)
@@ -56,7 +57,6 @@ namespace MoriWEB.Controllers
 
             return Json(new { customers, entries, paymentTypes });
         }
-
 
         // LİSTE / ARAMA
         [HttpGet]
@@ -72,8 +72,8 @@ namespace MoriWEB.Controllers
                 .Where(s =>
                     q == "" ||
                     ((s.Customer != null &&
-                        (((s.Customer.FirstName ?? "").ToLower() + " " + (s.Customer.LastName ?? "").ToLower()).Contains(q) ||
-                         (s.Customer.PhoneNumber ?? "").ToLower().Contains(q))) ||
+                        ((((s.Customer.FirstName ?? "").ToLower() + " " + (s.Customer.LastName ?? "").ToLower()).Contains(q)) ||
+                         ((s.Customer.PhoneNumber ?? "").ToLower().Contains(q)))) ||
                      (s.ProductEntry != null && s.ProductEntry.Product != null &&
                         (((s.ProductEntry.Product.Name ?? "").ToLower().Contains(q)) ||
                          ((s.ProductEntry.Product.Code ?? "").ToLower().Contains(q)))) ||
@@ -87,10 +87,11 @@ namespace MoriWEB.Controllers
                 {
                     s.Id,
                     CustomerName = s.Customer != null ? ((s.Customer.FirstName + " " + s.Customer.LastName).Trim()) : null,
+                    CustomerPhone = s.Customer != null ? s.Customer.PhoneNumber : null,
+                    ProductEntryId = s.ProductEntryId,
                     ProductCode = s.ProductEntry != null && s.ProductEntry.Product != null ? s.ProductEntry.Product.Code : null,
                     ProductName = s.ProductEntry != null && s.ProductEntry.Product != null ? s.ProductEntry.Product.Name : null,
                     CompanyName = s.ProductEntry != null && s.ProductEntry.Company != null ? s.ProductEntry.Company.Name : null,
-                    s.ProductEntryId,
                     s.Amount,
                     s.SalesPrice,
                     s.SalesDiscount,
@@ -99,11 +100,20 @@ namespace MoriWEB.Controllers
                     s.PaymentTypeId,
                     PaymentTypeName = s.PaymentType != null ? s.PaymentType.Name : null,
                     s.CustomerId,
-                    s.CreateDate
+                    s.CreateDate,
+                    LabelPrice = s.ProductEntry != null ? s.ProductEntry.SalesPrice : null
                 })
                 .ToListAsync();
 
             return Json(list);
+        }
+
+        // --- yardımcı: kasa tipi bul
+        private async Task<int?> FindCashTransactionTypeId(string code)
+        {
+            var ct = await _db.Lookups.AsNoTracking()
+                .FirstOrDefaultAsync(l => l.LookupType == LookupType.CashTransactionType && l.Code == code);
+            return ct?.Id;
         }
 
         // CREATE
@@ -112,9 +122,15 @@ namespace MoriWEB.Controllers
         {
             if (dto == null) return BadRequest("Geçersiz veri");
             if (dto.ProductEntryId == null || dto.ProductEntryId <= 0) return BadRequest("Stok girişi zorunludur.");
+            if (dto.CustomerId == null || dto.CustomerId <= 0) return BadRequest("Müşteri zorunludur.");
+            if (dto.PaymentTypeId == null || dto.PaymentTypeId <= 0) return BadRequest("Ödeme türü zorunludur.");
             if ((dto.Amount ?? 0) <= 0) return BadRequest("Miktar > 0 olmalı.");
+            if ((dto.SalesPrice ?? 0) <= 0) return BadRequest("Satış fiyatı > 0 olmalı.");
+            if ((dto.SalesDiscount ?? 0) < 0) return BadRequest("İskonto 0'dan küçük olamaz.");
 
-            var entry = await _db.ProductEntries.AsNoTracking().FirstOrDefaultAsync(e => e.Id == dto.ProductEntryId);
+            var entry = await _db.ProductEntries
+                .Include(e => e.Product).Include(e => e.Company)
+                .AsNoTracking().FirstOrDefaultAsync(e => e.Id == dto.ProductEntryId);
             if (entry == null) return BadRequest("Stok girişi bulunamadı.");
 
             var unit = dto.SalesPrice ?? 0m;
@@ -137,6 +153,21 @@ namespace MoriWEB.Controllers
 
             _db.ProductSales.Add(entity);
             await _db.SaveChangesAsync();
+
+            // Kasa kaydı — SATIŞ (gelir)
+            var cashTypeId = await FindCashTransactionTypeId("SATIS");
+            var cash = new CashTransaction
+            {
+                TransactionType = 0, // <- diğerinin tam tersi, senin isteğin
+                ProductSalesId = entity.Id,
+                CashTransactionTypeId = cashTypeId,
+                Amount = total,
+                Description = $"Satış: {(entry.Product?.Code)} - {(entry.Product?.Name)} x{dto.Amount}",
+                CreateDate = entity.CreateDate
+            };
+            _db.CashTransactions.Add(cash);
+            await _db.SaveChangesAsync();
+
             return Ok(new { ok = true, id = entity.Id });
         }
 
@@ -146,7 +177,11 @@ namespace MoriWEB.Controllers
         {
             if (dto == null || dto.Id <= 0) return BadRequest("Geçersiz Id");
             if (dto.ProductEntryId == null || dto.ProductEntryId <= 0) return BadRequest("Stok girişi zorunludur.");
+            if (dto.CustomerId == null || dto.CustomerId <= 0) return BadRequest("Müşteri zorunludur.");
+            if (dto.PaymentTypeId == null || dto.PaymentTypeId <= 0) return BadRequest("Ödeme türü zorunludur.");
             if ((dto.Amount ?? 0) <= 0) return BadRequest("Miktar > 0 olmalı.");
+            if ((dto.SalesPrice ?? 0) <= 0) return BadRequest("Satış fiyatı > 0 olmalı.");
+            if ((dto.SalesDiscount ?? 0) < 0) return BadRequest("İskonto 0'dan küçük olamaz.");
 
             var s = await _db.ProductSales.FirstOrDefaultAsync(x => x.Id == dto.Id);
             if (s == null) return NotFound();
@@ -169,6 +204,18 @@ namespace MoriWEB.Controllers
             s.CreateDate = dto.CreateDate == default ? s.CreateDate : dto.CreateDate;
 
             await _db.SaveChangesAsync();
+
+            // Bağlı kasa hareketini güncelle
+            var cash = await _db.CashTransactions.FirstOrDefaultAsync(c => c.ProductSalesId == s.Id);
+            if (cash != null)
+            {
+                cash.TransactionType = 0; // satış
+                cash.Amount = s.TotalPrice;
+                cash.Description = $"Satış (Güncelleme): SalesId={s.Id} x{s.Amount}";
+                cash.CreateDate = s.CreateDate;
+                await _db.SaveChangesAsync();
+            }
+
             return Ok(new { ok = true, id = s.Id });
         }
 
@@ -180,6 +227,11 @@ namespace MoriWEB.Controllers
 
             var s = await _db.ProductSales.FirstOrDefaultAsync(x => x.Id == dto.Id);
             if (s == null) return NotFound();
+
+            // kasa kayıtlarını da sil
+            var cash = await _db.CashTransactions.Where(c => c.ProductSalesId == s.Id).ToListAsync();
+            if (cash.Count > 0)
+                _db.CashTransactions.RemoveRange(cash);
 
             _db.ProductSales.Remove(s);
             await _db.SaveChangesAsync();

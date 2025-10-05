@@ -1,8 +1,173 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Ana Sayfa";
 }
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
 
-<div class="text-center">
-    <h1 class="display-4">Welcome to Moris</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container-fluid py-3">
+    <div class="row g-3">
+        <!-- SOL: Ürün listesi -->
+        <div class="col-12 col-md-4 col-lg-3">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <div class="d-flex gap-2">
+                        <input id="q" class="form-control" placeholder="Ürün ara (kod/ad)..." />
+                        <button id="btnSearch" class="btn btn-primary">Ara</button>
+                    </div>
+                </div>
+                <div id="lst" class="list-group list-group-flush" style="max-height:70vh;overflow:auto;"></div>
+            </div>
+        </div>
+
+        <!-- SAĞ: Detay -->
+        <div class="col-12 col-md-8 col-lg-9">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <strong id="pCode"></strong> <span id="pName" class="text-muted"></span>
+                    <div class="small text-secondary" id="pMeta"></div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <span class="badge bg-success">Stok: <span id="inStock">0</span></span>
+                        <span class="badge bg-secondary ms-2">Toplam Giriş: <span id="tEntry">0</span></span>
+                        <span class="badge bg-secondary ms-2">Toplam Satış: <span id="tSales">0</span></span>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-12 col-lg-6">
+                            <h6>Alışlar</h6>
+                            <div class="table-responsive" style="max-height:40vh;overflow:auto;">
+                                <table class="table table-sm table-striped mb-0">
+                                    <thead class="table-light">
+                                        <tr><th>Tarih</th><th>Firma</th><th class="text-end">Miktar</th><th class="text-end">Alış</th><th class="text-end">Etiket</th></tr>
+                                    </thead>
+                                    <tbody id="tblE"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <h6>Satışlar</h6>
+                            <div class="table-responsive" style="max-height:40vh;overflow:auto;">
+                                <table class="table table-sm table-striped mb-0">
+                                    <thead class="table-light">
+                                        <tr><th>Tarih</th><th>Müşteri</th><th class="text-end">Miktar</th><th class="text-end">Birim</th><th class="text-end">Net</th><th class="text-end">Tutar</th><th>Ödeme</th></tr>
+                                    </thead>
+                                    <tbody id="tblS"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="hint" class="text-muted small mt-2">Ürün seçiniz.</div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script>
+        const els = {
+          q: document.getElementById('q'),
+          btn: document.getElementById('btnSearch'),
+          lst: document.getElementById('lst'),
+          pCode: document.getElementById('pCode'),
+          pName: document.getElementById('pName'),
+          pMeta: document.getElementById('pMeta'),
+          inStock: document.getElementById('inStock'),
+          tEntry: document.getElementById('tEntry'),
+          tSales: document.getElementById('tSales'),
+          tblE: document.getElementById('tblE'),
+          tblS: document.getElementById('tblS'),
+          hint: document.getElementById('hint')
+        };
+
+        async function loadProducts(q=''){
+          const r = await fetch(`/Home/Products?q=${encodeURIComponent(q)}`);
+          const data = await r.json();
+          renderList(data);
+        }
+
+        function renderList(items){
+          els.lst.innerHTML = '';
+          if(!items || items.length===0){
+            els.lst.innerHTML = '<div class="p-3 text-muted">Kayıt yok.</div>'; return;
+          }
+          for(const x of items){
+            const lastE = x.lastEntryDate ? new Date(x.lastEntryDate).toLocaleDateString() : '-';
+            const lastS = x.lastSaleDate ? new Date(x.lastSaleDate).toLocaleDateString() : '-';
+            const a = document.createElement('a');
+            a.href = 'javascript:void(0)';
+            a.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+            a.innerHTML = `
+              <div>
+                <div><strong>${x.code ?? ''}</strong> - ${x.name ?? ''}</div>
+                <div class="small text-muted">Son Alış: ${lastE} • Son Satış: ${lastS}</div>
+              </div>
+              <span class="badge bg-${(x.inStock>0)?'success':'danger'} rounded-pill">${x.inStock}</span>`;
+            a.onclick = () => selectProduct(x.productId, a);
+            els.lst.appendChild(a);
+          }
+        }
+
+        let selected = null;
+        async function selectProduct(productId, a){
+          if(selected) selected.classList.remove('active');
+          selected = a; selected.classList.add('active');
+
+          const r = await fetch(`/Home/ProductDetails?productId=${productId}`);
+          if(!r.ok){ alert('Detay alınamadı'); return; }
+          const vm = await r.json();
+          renderDetail(vm);
+        }
+
+        function renderDetail(vm){
+          const h = vm.header || {};
+          els.pCode.textContent = h.code ?? '';
+          els.pName.textContent = ' ' + (h.name ?? '');
+          els.pMeta.textContent = [
+            h.brandName ? `Marka: ${h.brandName}` : null,
+            h.categoryName ? `Kategori: ${h.categoryName}` : null,
+            h.colorName ? `Renk: ${h.colorName}` : null
+          ].filter(Boolean).join(' • ');
+
+          els.inStock.textContent = vm.inStock ?? 0;
+          els.tEntry.textContent = vm.totalEntryAmount ?? 0;
+          els.tSales.textContent = vm.totalSalesAmount ?? 0;
+
+          els.tblE.innerHTML = '';
+          for(const e of (vm.entries||[])){
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${new Date(e.createDate).toLocaleDateString()}</td>
+              <td>${e.companyName ?? ''}</td>
+              <td class="text-end">${e.amount ?? ''}</td>
+              <td class="text-end">${money(e.purchasePrice)}</td>
+              <td class="text-end">${money(e.salesPrice)}</td>`;
+            els.tblE.appendChild(tr);
+          }
+
+          els.tblS.innerHTML = '';
+          for(const s of (vm.sales||[])){
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${new Date(s.createDate).toLocaleDateString()}</td>
+              <td>${s.customerName ?? ''}</td>
+              <td class="text-end">${s.amount ?? ''}</td>
+              <td class="text-end">${money(s.salesPrice)}</td>
+              <td class="text-end">${money(s.netPrice)}</td>
+              <td class="text-end">${money(s.totalPrice)}</td>
+              <td>${s.paymentTypeName ?? ''}</td>`;
+            els.tblS.appendChild(tr);
+          }
+
+          els.hint.style.display = (vm.entries?.length || vm.sales?.length) ? 'none' : 'block';
+        }
+
+        function money(v){ if(v==null) return ''; return Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+        els.btn.addEventListener('click', ()=> loadProducts(els.q.value));
+        els.q.addEventListener('keypress', (e)=>{ if(e.key==='Enter') loadProducts(els.q.value); });
+
+        loadProducts();
+    </script>
+}

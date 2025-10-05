@@ -3,11 +3,14 @@
     Layout = "_Layout";
 }
 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
 <div class="container-fluid py-3">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
             <h3 class="mb-0">Stok Girişleri</h3>
-            <small class="text-muted">Soldan giriş seç → sağda güncelle/sil. Seçmeden form doldur → yeni stok girişi oluştur.</small>
+            <small class="text-muted">Soldan giriş seç → sağda güncelle/sil. Seçim yokken formu doldurup <strong>Kaydet</strong> ile yeni giriş oluştur.</small>
         </div>
         <span class="badge rounded-pill bg-secondary-subtle text-secondary" id="listCount">0</span>
     </div>
@@ -19,7 +22,7 @@
                 <div class="card-body">
                     <div class="input-group mb-3">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input id="searchBox" type="text" class="form-control" placeholder="Ara: ürün adı/kodu, firma adı/kodu, stok kodu">
+                        <input id="searchBox" type="text" class="form-control" placeholder="Ara: ürün adı/kodu, firma adı/kodu, tarih">
                     </div>
 
                     <div id="entryList" class="list-group list-group-flush border rounded" style="max-height: 65vh; overflow:auto;">
@@ -40,7 +43,7 @@
                             </div>
                             <div>
                                 <h5 class="mb-0" id="formTitle">Yeni Stok Girişi</h5>
-                                <small class="text-muted" id="formSub">Bilgileri doldurun ve Kaydet’e basın.</small>
+                                <small class="text-muted" id="formSub">Seçim yokken Kaydet görünür; seçim yapınca Güncelle/Sil görünür.</small>
                             </div>
                         </div>
                         <span class="badge text-bg-light border" id="selectedIdBadge" style="display:none;">ID:</span>
@@ -48,37 +51,44 @@
 
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">Firma</label>
-                            <select id="CompanyId" class="form-select">
+                            <label class="form-label">Firma <span class="text-danger">*</span></label>
+                            <select id="CompanyId" class="form-select" required>
                                 <option value="">Seçiniz...</option>
                             </select>
+                            <div class="invalid-feedback">Firma seçiniz.</div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Ürün</label>
-                            <select id="ProductId" class="form-select">
+                            <label class="form-label">Ürün <span class="text-danger">*</span></label>
+                            <select id="ProductId" class="form-select" required>
                                 <option value="">Seçiniz...</option>
                             </select>
+                            <div class="invalid-feedback">Ürün seçiniz.</div>
                         </div>
+
                         <div class="col-md-6">
                             <label class="form-label">Tarih</label>
                             <input id="CreateDate" type="date" class="form-control">
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label">Miktar</label>
-                            <input id="Amount" type="number" min="0" step="1" class="form-control" value="1">
+                            <label class="form-label">Miktar <span class="text-danger">*</span></label>
+                            <input id="Amount" type="number" min="0.01" step="0.01" class="form-control" value="1" required>
+                            <div class="invalid-feedback">Miktar 0'dan büyük olmalı.</div>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Alış Fiyat</label>
-                            <input id="PurchasePrice" type="number" min="0" step="0.01" class="form-control" value="0">
+                            <label class="form-label">Alış Fiyat <span class="text-danger">*</span></label>
+                            <input id="PurchasePrice" type="number" min="0.01" step="0.01" class="form-control" value="0" required>
+                            <div class="invalid-feedback">Alış fiyatı 0'dan büyük olmalı.</div>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">İskonto (%)</label>
                             <input id="PurchaseDiscount" type="number" min="0" max="100" step="0.01" class="form-control" value="0">
+                            <div class="invalid-feedback">İskonto 0'dan küçük olamaz.</div>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Etiket Fiyat</label>
-                            <input id="SalesPrice" type="number" min="0" step="0.01" class="form-control" value="0">
+                            <label class="form-label">Etiket Fiyat <span class="text-danger">*</span></label>
+                            <input id="SalesPrice" type="number" min="0.01" step="0.01" class="form-control" value="0" required>
+                            <div class="invalid-feedback">Etiket fiyatı 0'dan büyük olmalı.</div>
                         </div>
 
                         <div class="col-md-6">
@@ -87,9 +97,6 @@
                         </div>
 
                         <div class="col-12 d-flex gap-2 justify-content-end mt-2">
-                            <button type="button" class="btn btn-outline-secondary" id="btnClear">
-                                <i class="bi bi-plus-circle"></i> Yeni Kayıt
-                            </button>
                             <button type="button" class="btn btn-primary" id="btnSave">
                                 <i class="bi bi-save2"></i> Kaydet
                             </button>
@@ -109,61 +116,32 @@
 
 @section Scripts {
     <script>
-        // --------- Helpers ---------
         function g(o, ...keys) { for (const k of keys) { if (o && o[k] != null) return o[k]; } return ""; }
-        function refreshCount() {
-            const count = document.querySelectorAll('#entryList .entry-item').length;
-            document.getElementById('listCount').innerText = count;
-        }
-        function normalizeDateForInput(v) {
-            if (!v) return "";
-            if (typeof v === "string") { return v.length >= 10 ? v.substring(0, 10) : v; }
-            if (v instanceof Date) {
-                const yyyy = v.getFullYear(); const mm = String(v.getMonth() + 1).padStart(2, '0'); const dd = String(v.getDate()).padStart(2, '0');
-                return `${yyyy}-${mm}-${dd}`;
-            }
-            return "";
-        }
+        function refreshCount() { const c = document.querySelectorAll('#entryList .entry-item').length; document.getElementById('listCount').innerText = c; }
+        function normalizeDateForInput(v) { if (!v) return ""; if (typeof v === "string") return v.length >= 10 ? v.substring(0, 10) : v; const d = v; if (d instanceof Date) { const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${day}`; } return ""; }
+        function tl(v) { const n = Number(v || 0); return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
-        // --------- Form refs ---------
         const idBadge = document.getElementById('selectedIdBadge');
         const formTitle = document.getElementById('formTitle');
         const formSub = document.getElementById('formSub');
-
-        const btnClear = document.getElementById('btnClear');
         const btnSave = document.getElementById('btnSave');
         const btnUpdate = document.getElementById('btnUpdate');
         const btnDelete = document.getElementById('btnDelete');
 
-        // StockCode formdan kaldırıldığı için fields içinde YOK
-        const fields = ["CompanyId", "ProductId", "CreateDate", "Amount", "PurchasePrice", "PurchaseDiscount", "SalesPrice", "NetPrice"];
-
         function setSelected(id) {
             const has = !!id && id > 0;
             if (has) {
-                idBadge.style.display = 'inline-block';
-                idBadge.textContent = `ID:${id}`;
-                formTitle.textContent = 'Stok Girişi Güncelle';
-                formSub.textContent = 'Düzenleyip Güncelle/Sil yapabilirsiniz.';
-                btnClear.classList.add('d-none');
-                btnSave.classList.add('d-none');
-                btnUpdate.classList.remove('d-none');
-                btnDelete.classList.remove('d-none');
+                idBadge.style.display = 'inline-block'; idBadge.textContent = `ID:${id}`;
+                formTitle.textContent = 'Stok Girişi Güncelle'; formSub.textContent = 'Düzenleyip Güncelle/Sil yapabilirsiniz.';
+                btnSave.classList.add('d-none'); btnUpdate.classList.remove('d-none'); btnDelete.classList.remove('d-none');
             } else {
-                idBadge.style.display = 'none';
-                idBadge.textContent = '';
-                formTitle.textContent = 'Yeni Stok Girişi';
-                formSub.textContent = 'Bilgileri doldurun ve Kaydet’e basın.';
-                btnClear.classList.remove('d-none');
-                btnSave.classList.remove('d-none');
-                btnUpdate.classList.add('d-none');
-                btnDelete.classList.add('d-none');
+                idBadge.style.display = 'none'; idBadge.textContent = '';
+                formTitle.textContent = 'Yeni Stok Girişi'; formSub.textContent = 'Bilgileri doldurun ve Kaydet’e basın.';
+                btnSave.classList.remove('d-none'); btnUpdate.classList.add('d-none'); btnDelete.classList.add('d-none');
             }
         }
-        function getSelectedId() {
-            const m = (idBadge.textContent || "").match(/ID:\s*(\d+)/i);
-            return m ? parseInt(m[1]) : 0;
-        }
+        function getSelectedId() { const m = (idBadge.textContent || "").match(/ID:\s*(\d+)/i); return m ? parseInt(m[1]) : 0; }
+
         function setForm(obj) {
             const map = {
                 CompanyId: ['companyId', 'CompanyId'],
@@ -177,9 +155,8 @@
             };
             for (const [k, keys] of Object.entries(map)) {
                 const el = document.getElementById(k); if (!el) continue;
-                let val = g(obj, ...keys);
-                if (k === 'CreateDate') val = normalizeDateForInput(val);
-                el.value = (val ?? '') === null ? '' : val;
+                let v = g(obj, ...keys); if (k === 'CreateDate') v = normalizeDateForInput(v);
+                el.value = (v ?? ''); el.classList.remove('is-invalid');
             }
         }
         function getForm() {
@@ -193,20 +170,17 @@
                 PurchasePrice: toDec(document.getElementById('PurchasePrice')?.value ?? "0"),
                 PurchaseDiscount: toDec(document.getElementById('PurchaseDiscount')?.value ?? "0"),
                 SalesPrice: toDec(document.getElementById('SalesPrice')?.value ?? "0"),
-                NetPrice: toDec(document.getElementById('NetPrice')?.value ?? "0")
+                NetPrice: toDec(document.getElementById('NetPrice')?.value ?? "0"),
             };
         }
         function clearForm() {
-            setForm({});
-            setSelected(0);
+            setForm({}); setSelected(0);
             document.querySelectorAll('.entry-item.active').forEach(x => x.classList.remove('active'));
-            // bugünün tarihi
-            const d = new Date(); const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0');
-            document.getElementById('CreateDate').value = `${yyyy}-${mm}-${dd}`;
+            const d = new Date(), y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+            document.getElementById('CreateDate').value = `${y}-${m}-${day}`;
             document.getElementById('NetPrice').value = "";
         }
 
-        // Net hesap
         function calcNet() {
             const amt = parseFloat(document.getElementById('Amount').value || "0");
             const prc = parseFloat(document.getElementById('PurchasePrice').value || "0");
@@ -214,19 +188,10 @@
             const net = (amt * prc) * (1 - (dsc / 100));
             document.getElementById('NetPrice').value = isFinite(net) ? net.toFixed(2) : "0.00";
         }
-        ['Amount', 'PurchasePrice', 'PurchaseDiscount'].forEach(id => {
-            document.getElementById(id)?.addEventListener('input', calcNet);
-        });
+        ['Amount', 'PurchasePrice', 'PurchaseDiscount'].forEach(id => document.getElementById(id)?.addEventListener('input', calcNet));
 
-        function tl(v) {
-            const n = Number(v || 0);
-            return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-
-        // Eski renderList'i bununla tamamen değiştir
         function renderList(items) {
-            const host = document.getElementById('entryList');
-            host.innerHTML = "";
+            const host = document.getElementById('entryList'); host.innerHTML = "";
             items.forEach(e => {
                 const id = g(e, 'id', 'Id');
                 const pCd = g(e, 'productCode', 'ProductCode') || '';
@@ -235,88 +200,96 @@
                 const amt = g(e, 'amount', 'Amount') || 0;
                 const buy = g(e, 'purchasePrice', 'PurchasePrice') || 0;
 
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'list-group-item list-group-item-action entry-item p-3';
+                const li = document.createElement('button');
+                li.type = 'button';
+                li.className = 'list-group-item list-group-item-action entry-item p-3';
 
-                btn.innerHTML = `
-                <div class="d-flex justify-content-between align-items-start w-100">
-                  <div class="me-3">
-                    <div class="fw-semibold">
-                      <span class="text-muted">Kod:</span> ${pCd}
-                      <span class="mx-2"></span>
-                      <span>${pNm}</span>
-                    </div>
-                    <div class="small text-secondary mt-1 d-flex flex-wrap gap-3">
-                      <span><i class="bi bi-building me-1"></i>Firma: <strong class="text-body">${cNm}</strong></span>
-                      <span><i class="bi bi-box-seam me-1"></i>Miktar: <strong class="text-body">${amt}</strong></span>
-                      <span><i class="bi bi-cash-coin me-1"></i>Alış: <strong class="text-body">${tl(buy)}</strong></span>
-                    </div>
+                li.innerHTML = `
+              <div class="d-flex justify-content-between align-items-start w-100">
+                <div class="me-3">
+                  <div class="fw-semibold">
+                    <span class="text-muted">Ürün:</span> <span class="text-body">${pCd ? `${pCd} — ` : ''}${pNm}</span>
                   </div>
-                  <span class="badge id-badge align-self-start">ID:${id}</span>
+                  <div class="small mt-1 d-flex flex-wrap gap-3">
+                    <span class="text-secondary"><i class="bi bi-building me-1"></i>Firma: <strong class="text-body">${cNm}</strong></span>
+                    <span class="text-secondary"><i class="bi bi-box-seam me-1"></i>Miktar: <strong class="text-body">${amt}</strong></span>
+                    <span class="text-secondary"><i class="bi bi-cash-coin me-1"></i>Alış: <strong class="text-body">${tl(buy)}</strong></span>
+                  </div>
                 </div>
-              `;
+                <span class="badge id-badge align-self-start">ID:${id}</span>
+              </div>
+            `;
 
-                btn.addEventListener('click', () => {
-                    const wasActive = btn.classList.contains('active');
+                li.addEventListener('click', () => {
+                    const was = li.classList.contains('active');
                     document.querySelectorAll('.entry-item.active').forEach(x => x.classList.remove('active'));
-                    if (wasActive) { clearForm(); setSelected(0); return; }
-                    btn.classList.add('active');
-                    setForm(e);
-                    setSelected(id);
+                    if (was) { clearForm(); setSelected(0); return; }
+                    li.classList.add('active'); setForm(e); setSelected(id);
                 });
 
-                host.appendChild(btn);
+                host.appendChild(li);
             });
             refreshCount();
         }
 
-        // --------- API ----------
-        async function apiLookups() {
-            const res = await fetch('/ProductEntry/Lookups');
-            if (!res.ok) throw new Error('Lookups alınamadı');
-            return await res.json();
-        }
-        async function apiList(q = "") {
-            const res = await fetch(`/ProductEntry/Search?q=${encodeURIComponent(q)}`);
-            if (!res.ok) throw new Error('Liste alınamadı');
-            return await res.json();
-        }
+        async function apiLookups() { const r = await fetch('/ProductEntry/Lookups'); if (!r.ok) throw new Error('Lookups alınamadı'); return r.json(); }
+        async function apiList(q = "") { const r = await fetch(`/ProductEntry/Search?q=${encodeURIComponent(q)}`); if (!r.ok) throw new Error('Liste alınamadı'); return r.json(); }
         async function apiCreate(model) {
-            const res = await fetch('/ProductEntry/Create', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(model)
-            });
-            if (res.status === 400) { alert('Zorunlu alanları kontrol edin.'); return { ok: false }; }
-            if (!res.ok) { alert('Kayıt başarısız'); return { ok: false }; }
-            return { ok: true, data: await res.json() };
+            const r = await fetch('/ProductEntry/Create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(model) });
+            if (r.status === 400) { const t = await r.text().catch(() => ''); alert(t || 'Zorunlu alanları kontrol edin.'); return { ok: false }; }
+            if (!r.ok) { alert('Kayıt başarısız'); return { ok: false }; }
+            return { ok: true, data: await r.json() };
         }
         async function apiUpdate(id, model) {
-            const res = await fetch('/ProductEntry/Update', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...model, Id: id })
-            });
-            if (res.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
-            if (res.status === 400) { alert('Zorunlu alanları kontrol edin.'); return { ok: false }; }
-            if (!res.ok) { alert('Güncelleme başarısız'); return { ok: false }; }
-            return { ok: true, data: await res.json() };
+            const r = await fetch('/ProductEntry/Update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...model, Id: id }) });
+            if (r.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
+            if (r.status === 400) { const t = await r.text().catch(() => ''); alert(t || 'Zorunlu alanları kontrol edin.'); return { ok: false }; }
+            if (!r.ok) { alert('Güncelleme başarısız'); return { ok: false }; }
+            return { ok: true, data: await r.json() };
         }
         async function apiDelete(id) {
-            const res = await fetch('/ProductEntry/Delete', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Id: id })
-            });
-            if (res.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
-            if (res.status === 400) { alert('Geçersiz istek (id).'); return { ok: false }; }
-            if (!res.ok) { alert('Silme başarısız'); return { ok: false }; }
+            const r = await fetch('/ProductEntry/Delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Id: id }) });
+            if (r.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
+            if (r.status === 400) { alert('Geçersiz istek (id).'); return { ok: false }; }
+            if (!r.ok) { alert('Silme başarısız'); return { ok: false }; }
             return { ok: true };
         }
 
-        // --------- Davranışlar ----------
+        /* İstemci doğrulama */
+        function validateForm() {
+            let ok = true;
+            // Firma/Ürün
+            ['CompanyId', 'ProductId'].forEach(id => {
+                const el = document.getElementById(id); const bad = !el.value || el.value === '0';
+                el.classList.toggle('is-invalid', bad); if (bad) ok = false;
+            });
+            // Miktar>0, Alış>0, Etiket>0, İskonto>=0
+            const amount = parseFloat(document.getElementById('Amount').value || '0');
+            const price = parseFloat(document.getElementById('PurchasePrice').value || '0');
+            const sales = parseFloat(document.getElementById('SalesPrice').value || '0');
+            const disc = parseFloat(document.getElementById('PurchaseDiscount').value || '0');
+            const aEl = document.getElementById('Amount'), pEl = document.getElementById('PurchasePrice'),
+                sEl = document.getElementById('SalesPrice'), dEl = document.getElementById('PurchaseDiscount');
+            const aBad = !(amount > 0), pBad = !(price > 0), sBad = !(sales > 0), dBad = !(disc >= 0);
+            aEl.classList.toggle('is-invalid', aBad);
+            pEl.classList.toggle('is-invalid', pBad);
+            sEl.classList.toggle('is-invalid', sBad);
+            dEl.classList.toggle('is-invalid', dBad);
+            if (aBad || pBad || sBad || dBad) ok = false;
+
+            return ok;
+        }
+
+        /* Startup & Events */
         (async () => {
             const l = await apiLookups();
-            fillSelect('CompanyId', l.companies);
-            fillSelect('ProductId', l.products);
+            // Select’lerde SADECE AD görünsün
+            fillSelect('CompanyId', l.companies, /*showCode*/ false);
+            fillSelect('ProductId', l.products,  /*showCode*/ false);
 
-            const d = new Date(); const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0');
-            document.getElementById('CreateDate').value = `${yyyy}-${mm}-${dd}`;
+            // bugün
+            const d = new Date(), y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+            document.getElementById('CreateDate').value = `${y}-${m}-${day}`;
 
             const items = await apiList("");
             renderList(items);
@@ -324,59 +297,54 @@
         })();
 
         document.getElementById('searchBox')?.addEventListener('input', async function () {
-            const items = await apiList(this.value || "");
-            renderList(items);
-            setSelected(0);
+            const items = await apiList(this.value || ""); renderList(items); setSelected(0);
         });
 
-        btnClear?.addEventListener('click', () => { clearForm(); setSelected(0); });
-
         btnSave?.addEventListener('click', async () => {
-            const body = getForm();
-            const r = await apiCreate(body);
-            if (!r.ok) return;
+            if (!validateForm()) { alert('Zorunlu alanları düzgün doldurun.'); return; }
+            const body = getForm(); const r = await apiCreate(body); if (!r.ok) return;
             alert('Stok girişi oluşturuldu.');
-            const items = await apiList(document.getElementById('searchBox')?.value || "");
-            renderList(items);
+            const items = await apiList(document.getElementById('searchBox')?.value || ""); renderList(items);
             clearForm(); setSelected(0);
         });
 
         btnUpdate?.addEventListener('click', async () => {
             const id = getSelectedId(); if (!id) { alert('Seçim yok'); return; }
-            const body = getForm();
-            const r = await apiUpdate(id, body);
-            if (!r.ok) return;
+            if (!validateForm()) { alert('Zorunlu alanları düzgün doldurun.'); return; }
+            const body = getForm(); const r = await apiUpdate(id, body); if (!r.ok) return;
             alert('Güncellendi.');
-            const items = await apiList(document.getElementById('searchBox')?.value || "");
-            renderList(items);
+            const items = await apiList(document.getElementById('searchBox')?.value || ""); renderList(items);
             clearForm(); setSelected(0);
         });
 
         btnDelete?.addEventListener('click', async () => {
             const id = getSelectedId(); if (!id) { alert('Seçim yok'); return; }
             if (!confirm('Silmek istediğinize emin misiniz?')) return;
-            const r = await apiDelete(id);
-            if (!r.ok) return;
-            const active = document.querySelector('#entryList .entry-item.active');
-            if (active) { active.parentElement.removeChild(active); refreshCount(); }
+            const r = await apiDelete(id); if (!r.ok) return;
+            const active = document.querySelector('#entryList .entry-item.active'); if (active) { active.remove(); refreshCount(); }
             clearForm(); setSelected(0);
         });
 
-        // Select doldurucu
-        function fillSelect(id, items) {
+        function fillSelect(id, items, showCode) {
             const sel = document.getElementById(id); if (!sel) return;
-            sel.innerHTML = `<option value="">Seçiniz...</option>` + (items || []).map(x => `<option value="${x.id}">${x.code} - ${x.name}</option>`).join('');
+            sel.innerHTML = `<option value="">Seçiniz...</option>` + (items || [])
+                .map(x => `<option value="${x.id}">${showCode ? (x.code + ' — ' + x.name) : x.name}</option>`)
+                .join('');
         }
     </script>
+
     <style>
-        .entry-item.active {
-            background-color: #e7f1ff !important;
-            color: inherit !important;
-            border-color: #cfe2ff !important;
+        .entry-item {
+            border-left: 3px solid transparent;
         }
 
-            .entry-item.active * {
-                color: inherit !important;
+            .entry-item.active {
+                background-color: #e7f1ff !important;
+                border-color: #84b6ff !important;
+            }
+
+            .entry-item .fw-semibold {
+                font-weight: 600;
             }
 
         .id-badge {
@@ -386,22 +354,14 @@
             font-weight: 500;
         }
 
-        .avatar {
-            font-weight: 600;
-        }
-
         @@media (max-width: 991.98px) {
             #entryList {
                 max-height: 40vh;
             }
-        } 
-  .id-badge{
-    color:#000 !important;
-    background-color:#f8f9fa !important;
-    border:1px solid #dee2e6 !important;
-    font-weight:500;
-  }
+        }
 
-
+        .is-invalid {
+            border-color: #dc3545 !important;
+        }
     </style>
 }

@@ -6,7 +6,6 @@ namespace MoriWEB.Models
     {
         public int Id { get; set; }
 
-        // Müşteri
         public int? CustomerId { get; set; }
         public Customer? Customer { get; set; }
 
@@ -22,9 +21,7 @@ namespace MoriWEB.Models
 
         public int? PaymentTypeId { get; set; }
         public Lookup? PaymentType { get; set; }
+
         public DateTime CreateDate { get; set; } = DateTime.Now;
-        [NotMapped] public decimal? PaidAmount { get; set; }
-
-
     }
 }

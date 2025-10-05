@@ -44,12 +44,27 @@ namespace MoriWEB.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("varchar(512)");
 
+                    b.Property<int?>("LookupId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProductEntryId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ProductSalesId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("TransactionType")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CashTransactionTypeId");
+
+                    b.HasIndex("LookupId");
+
+                    b.HasIndex("ProductEntryId");
+
+                    b.HasIndex("ProductSalesId");
 
                     b.ToTable("CashTransactions");
                 });
@@ -149,39 +164,6 @@ namespace MoriWEB.Migrations
                     b.ToTable("Lookups");
                 });
 
-            modelBuilder.Entity("MoriWEB.Models.Payment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreateDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(512)
-                        .HasColumnType("varchar(512)");
-
-                    b.Property<decimal?>("PaymentAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("ProductSalesId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("RemainingBalance")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductSalesId");
-
-                    b.ToTable("Payments");
-                });
-
             modelBuilder.Entity("MoriWEB.Models.Product", b =>
                 {
                     b.Property<int>("Id")
@@ -276,10 +258,6 @@ namespace MoriWEB.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("StockCode")
-                        .HasMaxLength(64)
-                        .HasColumnType("varchar(64)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CompanyId");
@@ -346,16 +324,21 @@ namespace MoriWEB.Migrations
                         .HasForeignKey("CashTransactionTypeId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("CashTransactionType");
-                });
+                    b.HasOne("MoriWEB.Models.Lookup", null)
+                        .WithMany("Transactions")
+                        .HasForeignKey("LookupId");
 
-            modelBuilder.Entity("MoriWEB.Models.Payment", b =>
-                {
+                    b.HasOne("MoriWEB.Models.ProductEntry", "ProductEntry")
+                        .WithMany()
+                        .HasForeignKey("ProductEntryId");
+
                     b.HasOne("MoriWEB.Models.ProductSales", "ProductSales")
-                        .WithMany("Payments")
-                        .HasForeignKey("ProductSalesId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .WithMany()
+                        .HasForeignKey("ProductSalesId");
+
+                    b.Navigation("CashTransactionType");
+
+                    b.Navigation("ProductEntry");
 
                     b.Navigation("ProductSales");
                 });
@@ -458,11 +441,8 @@ namespace MoriWEB.Migrations
             modelBuilder.Entity("MoriWEB.Models.Lookup", b =>
                 {
                     b.Navigation("Products");
-                });
 
-            modelBuilder.Entity("MoriWEB.Models.ProductSales", b =>
-                {
-                    b.Navigation("Payments");
+                    b.Navigation("Transactions");
                 });
 #pragma warning restore 612, 618
         }
