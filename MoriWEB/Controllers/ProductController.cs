@@ -183,7 +183,7 @@ namespace MoriWEB.Controllers
                 var tail = code.Length > prefix.Length ? code.Substring(prefix.Length) : "";
                 if (int.TryParse(tail, out var n) && n > maxSuffix) maxSuffix = n;
             }
-            var suffix = (maxSuffix + 1).ToString("D5");
+            var suffix = (maxSuffix + 1).ToString("D2");
             return prefix + suffix;
         }
     }

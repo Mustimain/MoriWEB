@@ -115,253 +115,222 @@
 </div>
 
 @section Scripts {
-    <script>
-        function g(o, ...keys) { for (const k of keys) { if (o && o[k] != null) return o[k]; } return ""; }
-        function refreshCount() { const c = document.querySelectorAll('#entryList .entry-item').length; document.getElementById('listCount').innerText = c; }
-        function normalizeDateForInput(v) { if (!v) return ""; if (typeof v === "string") return v.length >= 10 ? v.substring(0, 10) : v; const d = v; if (d instanceof Date) { const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${day}`; } return ""; }
-        function tl(v) { const n = Number(v || 0); return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+<script>
+    // -------- Helpers --------
+    function g(o, ...keys) { for (const k of keys) { if (o && o[k] != null) return o[k]; } return ""; }
+    function refreshCount() { const c = document.querySelectorAll('#entryList .entry-item').length; document.getElementById('listCount').innerText = c; }
+    function normalizeDateForInput(v) { if (!v) return ""; if (typeof v === "string") return v.length >= 10 ? v.substring(0, 10) : v; const d = v; if (d instanceof Date) { const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; } return ""; }
+    function tl(v) { const n = Number(v || 0); return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
-        const idBadge = document.getElementById('selectedIdBadge');
-        const formTitle = document.getElementById('formTitle');
-        const formSub = document.getElementById('formSub');
-        const btnSave = document.getElementById('btnSave');
-        const btnUpdate = document.getElementById('btnUpdate');
-        const btnDelete = document.getElementById('btnDelete');
+    const idBadge  = document.getElementById('selectedIdBadge');
+    const formTitle= document.getElementById('formTitle');
+    const formSub  = document.getElementById('formSub');
+    const btnSave  = document.getElementById('btnSave');
+    const btnUpdate= document.getElementById('btnUpdate');
+    const btnDelete= document.getElementById('btnDelete');
 
-        function setSelected(id) {
-            const has = !!id && id > 0;
-            if (has) {
-                idBadge.style.display = 'inline-block'; idBadge.textContent = `ID:${id}`;
-                formTitle.textContent = 'Stok Girişi Güncelle'; formSub.textContent = 'Düzenleyip Güncelle/Sil yapabilirsiniz.';
-                btnSave.classList.add('d-none'); btnUpdate.classList.remove('d-none'); btnDelete.classList.remove('d-none');
-            } else {
-                idBadge.style.display = 'none'; idBadge.textContent = '';
-                formTitle.textContent = 'Yeni Stok Girişi'; formSub.textContent = 'Bilgileri doldurun ve Kaydet’e basın.';
-                btnSave.classList.remove('d-none'); btnUpdate.classList.add('d-none'); btnDelete.classList.add('d-none');
-            }
+    function setSelected(id) {
+        const has = !!id && id > 0;
+        if (has) {
+            idBadge.style.display='inline-block'; idBadge.textContent = `ID:${id}`;
+            formTitle.textContent='Stok Girişi Güncelle'; formSub.textContent='Düzenleyip Güncelle/Sil yapabilirsiniz.';
+            btnSave.classList.add('d-none'); btnUpdate.classList.remove('d-none'); btnDelete.classList.remove('d-none');
+        } else {
+            idBadge.style.display='none'; idBadge.textContent='';
+            formTitle.textContent='Yeni Stok Girişi'; formSub.textContent='Bilgileri doldurun ve Kaydet’e basın.';
+            btnSave.classList.remove('d-none'); btnUpdate.classList.add('d-none'); btnDelete.classList.add('d-none');
         }
-        function getSelectedId() { const m = (idBadge.textContent || "").match(/ID:\s*(\d+)/i); return m ? parseInt(m[1]) : 0; }
+    }
+    function getSelectedId(){ const m=(idBadge.textContent||"").match(/ID:\s*(\d+)/i); return m?parseInt(m[1]):0; }
 
-        function setForm(obj) {
-            const map = {
-                CompanyId: ['companyId', 'CompanyId'],
-                ProductId: ['productId', 'ProductId'],
-                CreateDate: ['createDate', 'CreateDate'],
-                Amount: ['amount', 'Amount'],
-                PurchasePrice: ['purchasePrice', 'PurchasePrice'],
-                PurchaseDiscount: ['purchaseDiscount', 'PurchaseDiscount'],
-                SalesPrice: ['salesPrice', 'SalesPrice'],
-                NetPrice: ['netPrice', 'NetPrice']
-            };
-            for (const [k, keys] of Object.entries(map)) {
-                const el = document.getElementById(k); if (!el) continue;
-                let v = g(obj, ...keys); if (k === 'CreateDate') v = normalizeDateForInput(v);
-                el.value = (v ?? ''); el.classList.remove('is-invalid');
-            }
+    function setForm(obj){
+        const map = {
+            CompanyId:['companyId','CompanyId'],
+            ProductId:['productId','ProductId'],
+            CreateDate:['createDate','CreateDate'],
+            Amount:['amount','Amount'],
+            PurchasePrice:['purchasePrice','PurchasePrice'],
+            PurchaseDiscount:['purchaseDiscount','PurchaseDiscount'],
+            SalesPrice:['salesPrice','SalesPrice'],
+            NetPrice:['netPrice','NetPrice']
+        };
+        for (const [k, keys] of Object.entries(map)){
+            const el=document.getElementById(k); if(!el) continue;
+            let v=g(obj,...keys); if(k==='CreateDate') v=normalizeDateForInput(v);
+            el.value=(v ?? ''); el.classList.remove('is-invalid');
         }
-        function getForm() {
-            const toInt = v => v === "" ? 0 : parseInt(v, 10);
-            const toDec = v => v === "" ? 0 : parseFloat(v);
-            return {
-                CompanyId: toInt(document.getElementById('CompanyId')?.value ?? ""),
-                ProductId: toInt(document.getElementById('ProductId')?.value ?? ""),
-                CreateDate: document.getElementById('CreateDate')?.value ?? "",
-                Amount: toDec(document.getElementById('Amount')?.value ?? "0"),
-                PurchasePrice: toDec(document.getElementById('PurchasePrice')?.value ?? "0"),
-                PurchaseDiscount: toDec(document.getElementById('PurchaseDiscount')?.value ?? "0"),
-                SalesPrice: toDec(document.getElementById('SalesPrice')?.value ?? "0"),
-                NetPrice: toDec(document.getElementById('NetPrice')?.value ?? "0"),
-            };
-        }
-        function clearForm() {
-            setForm({}); setSelected(0);
-            document.querySelectorAll('.entry-item.active').forEach(x => x.classList.remove('active'));
-            const d = new Date(), y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
-            document.getElementById('CreateDate').value = `${y}-${m}-${day}`;
-            document.getElementById('NetPrice').value = "";
-        }
+    }
+    function getForm(){
+        const toInt=v=>v===""?0:parseInt(v,10);
+        const toDec=v=>v===""?0:parseFloat(v);
+        return {
+            CompanyId: toInt(document.getElementById('CompanyId')?.value ?? ""),
+            ProductId: toInt(document.getElementById('ProductId')?.value ?? ""),
+            CreateDate: document.getElementById('CreateDate')?.value ?? "",
+            Amount: toDec(document.getElementById('Amount')?.value ?? "0"),
+            PurchasePrice: toDec(document.getElementById('PurchasePrice')?.value ?? "0"),
+            PurchaseDiscount: toDec(document.getElementById('PurchaseDiscount')?.value ?? "0"),
+            SalesPrice: toDec(document.getElementById('SalesPrice')?.value ?? "0"),
+            NetPrice: toDec(document.getElementById('NetPrice')?.value ?? "0"),
+        };
+    }
+    function clearForm(){
+        setForm({}); setSelected(0);
+        document.querySelectorAll('.entry-item.active').forEach(x=>x.classList.remove('active'));
+        const d=new Date(), y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+        document.getElementById('CreateDate').value=`${y}-${m}-${day}`;
+        document.getElementById('NetPrice').value="";
+    }
 
-        function calcNet() {
-            const amt = parseFloat(document.getElementById('Amount').value || "0");
-            const prc = parseFloat(document.getElementById('PurchasePrice').value || "0");
-            const dsc = parseFloat(document.getElementById('PurchaseDiscount').value || "0");
-            const net = (amt * prc) * (1 - (dsc / 100));
-            document.getElementById('NetPrice').value = isFinite(net) ? net.toFixed(2) : "0.00";
-        }
-        ['Amount', 'PurchasePrice', 'PurchaseDiscount'].forEach(id => document.getElementById(id)?.addEventListener('input', calcNet));
+    function calcNet(){
+        const amt=parseFloat(document.getElementById('Amount').value||"0");
+        const prc=parseFloat(document.getElementById('PurchasePrice').value||"0");
+        const dsc=parseFloat(document.getElementById('PurchaseDiscount').value||"0");
+        const net=(amt*prc)*(1-(dsc/100));
+        document.getElementById('NetPrice').value=isFinite(net)?net.toFixed(2):"0.00";
+    }
+    ['Amount','PurchasePrice','PurchaseDiscount'].forEach(id=>document.getElementById(id)?.addEventListener('input',calcNet));
 
-        function renderList(items) {
-            const host = document.getElementById('entryList'); host.innerHTML = "";
-            items.forEach(e => {
-                const id = g(e, 'id', 'Id');
-                const pCd = g(e, 'productCode', 'ProductCode') || '';
-                const pNm = g(e, 'productName', 'ProductName') || '(Ürün yok)';
-                const cNm = g(e, 'companyName', 'CompanyName') || '';
-                const amt = g(e, 'amount', 'Amount') || 0;
-                const buy = g(e, 'purchasePrice', 'PurchasePrice') || 0;
+    function renderList(items){
+        const host=document.getElementById('entryList'); host.innerHTML="";
+        items.forEach(e=>{
+            const id=g(e,'id','Id');
+            const pCd=g(e,'productCode','ProductCode')||'';
+            const pNm=g(e,'productName','ProductName')||'(Ürün yok)';
+            const cNm=g(e,'companyName','CompanyName')||'';
+            const amt=g(e,'amount','Amount')||0;
+            const buy=g(e,'purchasePrice','PurchasePrice')||0;
 
-                const li = document.createElement('button');
-                li.type = 'button';
-                li.className = 'list-group-item list-group-item-action entry-item p-3';
-
-                li.innerHTML = `
-              <div class="d-flex justify-content-between align-items-start w-100">
-                <div class="me-3">
-                  <div class="fw-semibold">
-                    <span class="text-muted">Ürün:</span> <span class="text-body">${pCd ? `${pCd} — ` : ''}${pNm}</span>
-                  </div>
-                  <div class="small mt-1 d-flex flex-wrap gap-3">
-                    <span class="text-secondary"><i class="bi bi-building me-1"></i>Firma: <strong class="text-body">${cNm}</strong></span>
-                    <span class="text-secondary"><i class="bi bi-box-seam me-1"></i>Miktar: <strong class="text-body">${amt}</strong></span>
-                    <span class="text-secondary"><i class="bi bi-cash-coin me-1"></i>Alış: <strong class="text-body">${tl(buy)}</strong></span>
-                  </div>
-                </div>
-                <span class="badge id-badge align-self-start">ID:${id}</span>
-              </div>
-            `;
-
-                li.addEventListener('click', () => {
-                    const was = li.classList.contains('active');
-                    document.querySelectorAll('.entry-item.active').forEach(x => x.classList.remove('active'));
-                    if (was) { clearForm(); setSelected(0); return; }
-                    li.classList.add('active'); setForm(e); setSelected(id);
-                });
-
-                host.appendChild(li);
+            const li=document.createElement('button');
+            li.type='button';
+            li.className='list-group-item list-group-item-action entry-item p-3';
+            li.innerHTML=`
+                <div class="d-flex justify-content-between align-items-start w-100">
+                    <div class="me-3">
+                        <div class="fw-semibold">
+                            <span class="text-muted">Ürün:</span> <span class="text-body">${pCd?`${pCd} — `:''}${pNm}</span>
+                        </div>
+                        <div class="small mt-1 d-flex flex-wrap gap-3">
+                            <span class="text-secondary"><i class="bi bi-building me-1"></i>Firma: <strong class="text-body">${cNm}</strong></span>
+                            <span class="text-secondary"><i class="bi bi-box-seam me-1"></i>Miktar: <strong class="text-body">${amt}</strong></span>
+                            <span class="text-secondary"><i class="bi bi-cash-coin me-1"></i>Alış: <strong class="text-body">${tl(buy)}</strong></span>
+                        </div>
+                    </div>
+                    <span class="badge id-badge align-self-start">ID:${id}</span>
+                </div>`;
+            li.addEventListener('click',()=>{
+                const was=li.classList.contains('active');
+                document.querySelectorAll('.entry-item.active').forEach(x=>x.classList.remove('active'));
+                if(was){ clearForm(); setSelected(0); return; }
+                li.classList.add('active'); setForm(e); setSelected(id);
             });
-            refreshCount();
-        }
-
-        async function apiLookups() { const r = await fetch('/ProductEntry/Lookups'); if (!r.ok) throw new Error('Lookups alınamadı'); return r.json(); }
-        async function apiList(q = "") { const r = await fetch(`/ProductEntry/Search?q=${encodeURIComponent(q)}`); if (!r.ok) throw new Error('Liste alınamadı'); return r.json(); }
-        async function apiCreate(model) {
-            const r = await fetch('/ProductEntry/Create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(model) });
-            if (r.status === 400) { const t = await r.text().catch(() => ''); alert(t || 'Zorunlu alanları kontrol edin.'); return { ok: false }; }
-            if (!r.ok) { alert('Kayıt başarısız'); return { ok: false }; }
-            return { ok: true, data: await r.json() };
-        }
-        async function apiUpdate(id, model) {
-            const r = await fetch('/ProductEntry/Update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...model, Id: id }) });
-            if (r.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
-            if (r.status === 400) { const t = await r.text().catch(() => ''); alert(t || 'Zorunlu alanları kontrol edin.'); return { ok: false }; }
-            if (!r.ok) { alert('Güncelleme başarısız'); return { ok: false }; }
-            return { ok: true, data: await r.json() };
-        }
-        async function apiDelete(id) {
-            const r = await fetch('/ProductEntry/Delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Id: id }) });
-            if (r.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
-            if (r.status === 400) { alert('Geçersiz istek (id).'); return { ok: false }; }
-            if (!r.ok) { alert('Silme başarısız'); return { ok: false }; }
-            return { ok: true };
-        }
-
-        /* İstemci doğrulama */
-        function validateForm() {
-            let ok = true;
-            // Firma/Ürün
-            ['CompanyId', 'ProductId'].forEach(id => {
-                const el = document.getElementById(id); const bad = !el.value || el.value === '0';
-                el.classList.toggle('is-invalid', bad); if (bad) ok = false;
-            });
-            // Miktar>0, Alış>0, Etiket>0, İskonto>=0
-            const amount = parseFloat(document.getElementById('Amount').value || '0');
-            const price = parseFloat(document.getElementById('PurchasePrice').value || '0');
-            const sales = parseFloat(document.getElementById('SalesPrice').value || '0');
-            const disc = parseFloat(document.getElementById('PurchaseDiscount').value || '0');
-            const aEl = document.getElementById('Amount'), pEl = document.getElementById('PurchasePrice'),
-                sEl = document.getElementById('SalesPrice'), dEl = document.getElementById('PurchaseDiscount');
-            const aBad = !(amount > 0), pBad = !(price > 0), sBad = !(sales > 0), dBad = !(disc >= 0);
-            aEl.classList.toggle('is-invalid', aBad);
-            pEl.classList.toggle('is-invalid', pBad);
-            sEl.classList.toggle('is-invalid', sBad);
-            dEl.classList.toggle('is-invalid', dBad);
-            if (aBad || pBad || sBad || dBad) ok = false;
-
-            return ok;
-        }
-
-        /* Startup & Events */
-        (async () => {
-            const l = await apiLookups();
-            // Select’lerde SADECE AD görünsün
-            fillSelect('CompanyId', l.companies, /*showCode*/ false);
-            fillSelect('ProductId', l.products,  /*showCode*/ false);
-
-            // bugün
-            const d = new Date(), y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
-            document.getElementById('CreateDate').value = `${y}-${m}-${day}`;
-
-            const items = await apiList("");
-            renderList(items);
-            setSelected(0);
-        })();
-
-        document.getElementById('searchBox')?.addEventListener('input', async function () {
-            const items = await apiList(this.value || ""); renderList(items); setSelected(0);
+            host.appendChild(li);
         });
+        refreshCount();
+    }
 
-        btnSave?.addEventListener('click', async () => {
-            if (!validateForm()) { alert('Zorunlu alanları düzgün doldurun.'); return; }
-            const body = getForm(); const r = await apiCreate(body); if (!r.ok) return;
-            alert('Stok girişi oluşturuldu.');
-            const items = await apiList(document.getElementById('searchBox')?.value || ""); renderList(items);
-            clearForm(); setSelected(0);
+    async function apiLookups(){ const r=await fetch('/ProductEntry/Lookups'); if(!r.ok) throw new Error('Lookups alınamadı'); return r.json(); }
+    async function apiList(q=""){ const r=await fetch(`/ProductEntry/Search?q=${encodeURIComponent(q)}`); if(!r.ok) throw new Error('Liste alınamadı'); return r.json(); }
+    async function apiCreate(model){
+        const r=await fetch('/ProductEntry/Create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(model)});
+        if(r.status===400){ const t=await r.text().catch(()=> ''); alert(t||'Zorunlu alanları kontrol edin.'); return {ok:false}; }
+        if(!r.ok){ const t=await r.text().catch(()=> ''); alert(t||'Kayıt başarısız'); return {ok:false}; }
+        return {ok:true, data: await r.json()};
+    }
+    async function apiUpdate(id, model){
+        const r=await fetch('/ProductEntry/Update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...model, Id:id})});
+        if(r.status===404){ alert('Kayıt bulunamadı.'); return {ok:false}; }
+        if(r.status===400){ const t=await r.text().catch(()=> ''); alert(t||'Zorunlu alanları kontrol edin.'); return {ok:false}; }
+        if(r.status===409){ const t=await r.text().catch(()=> ''); alert(t||'Bu girişten düşüm yapılmış. Önce bağlı satışları iptal edin.'); return {ok:false}; }
+        if(!r.ok){ const t=await r.text().catch(()=> ''); alert(t||'Güncelleme başarısız'); return {ok:false}; }
+        return {ok:true, data: await r.json()};
+    }
+    async function apiDelete(id){
+        const r=await fetch('/ProductEntry/Delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({Id:id})});
+        if(r.status===404){ alert('Kayıt bulunamadı.'); return {ok:false}; }
+        if(r.status===400){ alert('Geçersiz istek (id).'); return {ok:false}; }
+        if(r.status===409){ const t=await r.text().catch(()=> ''); alert(t||'Bu girişten düşüm yapılmış. Önce bağlı satışları iptal edin.'); return {ok:false}; }
+        if(!r.ok){ alert('Silme başarısız'); return {ok:false}; }
+        return {ok:true};
+    }
+
+    function validateForm(){
+        let ok=true;
+        ['CompanyId','ProductId'].forEach(id=>{
+            const el=document.getElementById(id); const bad=!el.value || el.value==='0';
+            el.classList.toggle('is-invalid', bad); if(bad) ok=false;
         });
+        const amount=parseFloat(document.getElementById('Amount').value||'0');
+        const price=parseFloat(document.getElementById('PurchasePrice').value||'0');
+        const sales=parseFloat(document.getElementById('SalesPrice').value||'0');
+        const disc=parseFloat(document.getElementById('PurchaseDiscount').value||'0');
+        const aEl= document.getElementById('Amount'), pEl=document.getElementById('PurchasePrice'), sEl=document.getElementById('SalesPrice'), dEl=document.getElementById('PurchaseDiscount');
+        const aBad=!(amount>0), pBad=!(price>0), sBad=!(sales>0), dBad=!(disc>=0);
+        aEl.classList.toggle('is-invalid', aBad);
+        pEl.classList.toggle('is-invalid', pBad);
+        sEl.classList.toggle('is-invalid', sBad);
+        dEl.classList.toggle('is-invalid', dBad);
+        if(aBad||pBad||sBad||dBad) ok=false;
+        return ok;
+    }
 
-        btnUpdate?.addEventListener('click', async () => {
-            const id = getSelectedId(); if (!id) { alert('Seçim yok'); return; }
-            if (!validateForm()) { alert('Zorunlu alanları düzgün doldurun.'); return; }
-            const body = getForm(); const r = await apiUpdate(id, body); if (!r.ok) return;
-            alert('Güncellendi.');
-            const items = await apiList(document.getElementById('searchBox')?.value || ""); renderList(items);
-            clearForm(); setSelected(0);
-        });
+    (async()=>{
+        const l=await apiLookups();
+        fillSelect('CompanyId', l.companies, false);
+        fillSelect('ProductId', l.products,  false);
 
-        btnDelete?.addEventListener('click', async () => {
-            const id = getSelectedId(); if (!id) { alert('Seçim yok'); return; }
-            if (!confirm('Silmek istediğinize emin misiniz?')) return;
-            const r = await apiDelete(id); if (!r.ok) return;
-            const active = document.querySelector('#entryList .entry-item.active'); if (active) { active.remove(); refreshCount(); }
-            clearForm(); setSelected(0);
-        });
+        const d=new Date(), y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+        document.getElementById('CreateDate').value=`${y}-${m}-${day}`;
 
-        function fillSelect(id, items, showCode) {
-            const sel = document.getElementById(id); if (!sel) return;
-            sel.innerHTML = `<option value="">Seçiniz...</option>` + (items || [])
-                .map(x => `<option value="${x.id}">${showCode ? (x.code + ' — ' + x.name) : x.name}</option>`)
-                .join('');
-        }
-    </script>
+        const items=await apiList("");
+        renderList(items);
+        setSelected(0);
+    })();
 
-    <style>
-        .entry-item {
-            border-left: 3px solid transparent;
-        }
+    document.getElementById('searchBox')?.addEventListener('input', async function(){
+        const items=await apiList(this.value||""); renderList(items); setSelected(0);
+    });
 
-            .entry-item.active {
-                background-color: #e7f1ff !important;
-                border-color: #84b6ff !important;
-            }
+    btnSave?.addEventListener('click', async ()=>{
+        if(!validateForm()){ alert('Zorunlu alanları düzgün doldurun.'); return; }
+        const body=getForm();
+        const r=await apiCreate(body); if(!r.ok) return;
+        alert('Stok girişi oluşturuldu.');
+        const items=await apiList(document.getElementById('searchBox')?.value||""); renderList(items);
+        clearForm(); setSelected(0);
+    });
 
-            .entry-item .fw-semibold {
-                font-weight: 600;
-            }
+    btnUpdate?.addEventListener('click', async ()=>{
+        const id=getSelectedId(); if(!id){ alert('Seçim yok'); return; }
+        if(!validateForm()){ alert('Zorunlu alanları düzgün doldurun.'); return; }
+        const body=getForm();
+        const r=await apiUpdate(id, body); if(!r.ok) return;
+        alert('Güncellendi.');
+        const items=await apiList(document.getElementById('searchBox')?.value||""); renderList(items);
+        clearForm(); setSelected(0);
+    });
 
-        .id-badge {
-            color: #000 !important;
-            background-color: #f8f9fa !important;
-            border: 1px solid #dee2e6 !important;
-            font-weight: 500;
-        }
+    btnDelete?.addEventListener('click', async ()=>{
+        const id=getSelectedId(); if(!id){ alert('Seçim yok'); return; }
+        if(!confirm('Silmek istediğinize emin misiniz?')) return;
+        const r=await apiDelete(id); if(!r.ok) return;
+        const active=document.querySelector('#entryList .entry-item.active'); if(active){ active.remove(); refreshCount(); }
+        clearForm(); setSelected(0);
+    });
 
-        @@media (max-width: 991.98px) {
-            #entryList {
-                max-height: 40vh;
-            }
-        }
+    function fillSelect(id, items, showCode){
+        const sel=document.getElementById(id); if(!sel) return;
+        sel.innerHTML = `<option value="">Seçiniz...</option>` + (items||[])
+            .map(x=>`<option value="${x.id}">${showCode ? (x.code + ' — ' + x.name) : x.name}</option>`).join('');
+    }
+</script>
 
-        .is-invalid {
-            border-color: #dc3545 !important;
-        }
-    </style>
+<style>
+    .entry-item{ border-left:3px solid transparent; }
+    .entry-item.active{ background-color:#e7f1ff !important; border-color:#84b6ff !important; }
+    .entry-item .fw-semibold{ font-weight:600; }
+    .id-badge{ color:#000 !important; background-color:#f8f9fa !important; border:1px solid #dee2e6 !important; font-weight:500; }
+    @@media (max-width: 991.98px){ #entryList{ max-height:40vh; } }
+    .is-invalid{ border-color:#dc3545 !important; }
+</style>
 }

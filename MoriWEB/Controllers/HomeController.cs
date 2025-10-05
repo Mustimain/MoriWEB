@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MoriWEB.DatabaseContext;
-using System.Linq;
 
 namespace MoriWEB.Controllers
 {
@@ -19,66 +18,66 @@ namespace MoriWEB.Controllers
         {
             q = (q ?? "").Trim().ToLower();
 
-            // Giriþ toplamlarý (ProductEntry üzerinden)
+            // Alýþ toplamlarý (ProductEntries)
             var entryAgg = await _db.ProductEntries
                 .GroupBy(e => e.ProductId)
                 .Select(g => new
                 {
                     ProductId = g.Key,
-                    TotalEntry = g.Sum(x => x.Amount ?? 0),
+                    TotalEntry = g.Sum(x => (double?)(x.Amount ?? 0d)) ?? 0d,
                     LastEntry = g.Max(x => (DateTime?)x.CreateDate)
                 })
                 .ToListAsync();
 
-            // Satýþ toplamlarý (ProductSales -> ProductEntry -> ProductId)
-            var saleAgg = await _db.ProductSales
-                .Where(s => s.ProductEntryId != null)
-                .Include(s => s.ProductEntry!)
-                .GroupBy(s => s.ProductEntry!.ProductId)
+            // Satýþ toplamlarý artýk FIFO tüketimlerinden (ProductSaleConsumptions)
+            var saleAgg = await _db.ProductSaleConsumptions
+                .Where(c => c.ProductEntry != null)
+                .Select(c => new
+                {
+                    ProductId = c.ProductEntry!.ProductId,
+                    Qty = (double?)(c.Quantity) ?? 0d,
+                    Date = (DateTime?)c.CreateDate
+                })
+                .GroupBy(x => x.ProductId)
                 .Select(g => new
                 {
                     ProductId = g.Key,
-                    TotalSales = g.Sum(x => x.Amount ?? 0),
-                    LastSale = g.Max(x => (DateTime?)x.CreateDate)
+                    TotalSales = g.Sum(x => x.Qty),
+                    LastSale = g.Max(x => x.Date)
                 })
                 .ToListAsync();
 
             var eDict = entryAgg.ToDictionary(x => x.ProductId, x => x);
             var sDict = saleAgg.ToDictionary(x => x.ProductId, x => x);
 
-            var list = await _db.Products.AsNoTracking()
+            var products = await _db.Products.AsNoTracking()
                 .Where(p => q == "" ||
                             (p.Code ?? "").ToLower().Contains(q) ||
                             (p.Name ?? "").ToLower().Contains(q))
                 .OrderBy(p => p.Code)
-                .Select(p => new
-                {
-                    productId = p.Id,
-                    code = p.Code,
-                    name = p.Name
-                })
+                .Select(p => new { p.Id, p.Code, p.Name })
                 .ToListAsync();
 
-            var result = list.Select(p =>
-            {
-                eDict.TryGetValue(p.productId, out var e);
-                sDict.TryGetValue(p.productId, out var s);
-                var totalE = e?.TotalEntry ?? 0;
-                var totalS = s?.TotalSales ?? 0;
-                return new
+            var result = products
+                .Select(p =>
                 {
-                    p.productId,
-                    p.code,
-                    p.name,
-                    inStock = totalE - totalS,
-                    lastEntryDate = e?.LastEntry,
-                    lastSaleDate = s?.LastSale
-                };
-            })
-            // Stoðu olanlar öne
-            .OrderByDescending(x => x.inStock > 0)
-            .ThenBy(x => x.code)
-            .ToList();
+                    eDict.TryGetValue(p.Id, out var e);
+                    sDict.TryGetValue(p.Id, out var s);
+                    var totalE = e?.TotalEntry ?? 0d;
+                    var totalS = s?.TotalSales ?? 0d;
+                    return new
+                    {
+                        productId = p.Id,
+                        code = p.Code,
+                        name = p.Name,
+                        inStock = totalE - totalS,
+                        lastEntryDate = e?.LastEntry,
+                        lastSaleDate = s?.LastSale
+                    };
+                })
+                .OrderByDescending(x => x.inStock > 0) // stoðu olanlar öne
+                .ThenBy(x => x.code)
+                .ToList();
 
             return Json(result);
         }
@@ -95,7 +94,7 @@ namespace MoriWEB.Controllers
 
             if (product == null) return NotFound("Ürün bulunamadý.");
 
-            // Alýþlar
+            // Alýþ listesi
             var entries = await _db.ProductEntries.AsNoTracking()
                 .Include(e => e.Company)
                 .Where(e => e.ProductId == productId)
@@ -111,17 +110,21 @@ namespace MoriWEB.Controllers
                 })
                 .ToListAsync();
 
-            // Satýþlar
+            // Satýþ listesi: ürünle iliþkili satýþlarý, tüketim kaydýna göre bul
             var sales = await _db.ProductSales.AsNoTracking()
                 .Include(s => s.Customer)
                 .Include(s => s.PaymentType)
-                .Include(s => s.ProductEntry)!.ThenInclude(pe => pe.Product)
-                .Where(s => s.ProductEntry != null && s.ProductEntry.ProductId == productId)
+                .Where(s =>
+                    _db.ProductSaleConsumptions.Any(c =>
+                        c.ProductSalesId == s.Id &&
+                        c.ProductEntry!.ProductId == productId))
                 .OrderByDescending(s => s.CreateDate)
                 .Select(s => new
                 {
                     id = s.Id,
-                    customerName = s.Customer != null ? ((s.Customer.FirstName + " " + s.Customer.LastName).Trim()) : null,
+                    customerName = s.Customer != null
+                        ? ((s.Customer.FirstName + " " + s.Customer.LastName).Trim())
+                        : null,
                     amount = s.Amount,
                     salesPrice = s.SalesPrice,
                     netPrice = s.NetPrice,
@@ -131,8 +134,14 @@ namespace MoriWEB.Controllers
                 })
                 .ToListAsync();
 
-            var totalEntry = entries.Sum(x => x.amount ?? 0);
-            var totalSales = sales.Sum(x => x.amount ?? 0);
+            // Toplamlar: giriþleri ProductEntries, satýþlarý ProductSaleConsumptions'tan topla
+            var totalEntry = await _db.ProductEntries.AsNoTracking()
+                .Where(pe => pe.ProductId == productId)
+                .SumAsync(pe => (double?)(pe.Amount ?? 0d)) ?? 0d;
+
+            var totalSales = await _db.ProductSaleConsumptions.AsNoTracking()
+                .Where(c => c.ProductEntry!.ProductId == productId)
+                .SumAsync(c => (double?)(c.Quantity)) ?? 0d;
 
             var payload = new
             {

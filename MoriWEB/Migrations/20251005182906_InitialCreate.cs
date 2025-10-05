@@ -62,11 +62,13 @@ namespace MoriWEB.Migrations
                     Name = table.Column<string>(type: "varchar(128)", maxLength: 128, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     LookupType = table.Column<int>(type: "int", nullable: false),
-                    CreateDate = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                    CreateDate = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    TransactionSign = table.Column<int>(type: "int", nullable: false, defaultValue: 0)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Lookups", x => x.Id);
+                    table.CheckConstraint("CK_Lookup_TransactionSign", "TransactionSign IN (0,1)");
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -142,7 +144,8 @@ namespace MoriWEB.Migrations
                     PurchaseDiscount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: true),
                     NetPrice = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: true),
                     SalesPrice = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: true),
-                    CreateDate = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                    CreateDate = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    RemainingAmount = table.Column<double>(type: "double", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -208,15 +211,13 @@ namespace MoriWEB.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
-                    TransactionType = table.Column<int>(type: "int", nullable: true),
                     ProductSalesId = table.Column<int>(type: "int", nullable: true),
                     ProductEntryId = table.Column<int>(type: "int", nullable: true),
                     CashTransactionTypeId = table.Column<int>(type: "int", nullable: true),
                     Amount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: true),
                     Description = table.Column<string>(type: "varchar(512)", maxLength: 512, nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
-                    CreateDate = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    LookupId = table.Column<int>(type: "int", nullable: true)
+                    CreateDate = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -227,11 +228,6 @@ namespace MoriWEB.Migrations
                         principalTable: "Lookups",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_CashTransactions_Lookups_LookupId",
-                        column: x => x.LookupId,
-                        principalTable: "Lookups",
-                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_CashTransactions_ProductEntries_ProductEntryId",
                         column: x => x.ProductEntryId,
@@ -245,15 +241,40 @@ namespace MoriWEB.Migrations
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
+            migrationBuilder.CreateTable(
+                name: "ProductSaleConsumptions",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    ProductSalesId = table.Column<int>(type: "int", nullable: false),
+                    ProductEntryId = table.Column<int>(type: "int", nullable: false),
+                    Quantity = table.Column<double>(type: "double", nullable: false),
+                    UnitCost = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    CreateDate = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProductSaleConsumptions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProductSaleConsumptions_ProductEntries_ProductEntryId",
+                        column: x => x.ProductEntryId,
+                        principalTable: "ProductEntries",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ProductSaleConsumptions_ProductSales_ProductSalesId",
+                        column: x => x.ProductSalesId,
+                        principalTable: "ProductSales",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
             migrationBuilder.CreateIndex(
                 name: "IX_CashTransactions_CashTransactionTypeId",
                 table: "CashTransactions",
                 column: "CashTransactionTypeId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_CashTransactions_LookupId",
-                table: "CashTransactions",
-                column: "LookupId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_CashTransactions_ProductEntryId",
@@ -324,6 +345,16 @@ namespace MoriWEB.Migrations
                 column: "ModelId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ProductSaleConsumptions_ProductEntryId",
+                table: "ProductSaleConsumptions",
+                column: "ProductEntryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductSaleConsumptions_ProductSalesId",
+                table: "ProductSaleConsumptions",
+                column: "ProductSalesId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ProductSales_CustomerId",
                 table: "ProductSales",
                 column: "CustomerId");
@@ -344,6 +375,9 @@ namespace MoriWEB.Migrations
         {
             migrationBuilder.DropTable(
                 name: "CashTransactions");
+
+            migrationBuilder.DropTable(
+                name: "ProductSaleConsumptions");
 
             migrationBuilder.DropTable(
                 name: "ProductSales");

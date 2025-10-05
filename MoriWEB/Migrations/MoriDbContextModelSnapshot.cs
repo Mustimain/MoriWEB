@@ -44,23 +44,15 @@ namespace MoriWEB.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("varchar(512)");
 
-                    b.Property<int?>("LookupId")
-                        .HasColumnType("int");
-
                     b.Property<int?>("ProductEntryId")
                         .HasColumnType("int");
 
                     b.Property<int?>("ProductSalesId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("TransactionType")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CashTransactionTypeId");
-
-                    b.HasIndex("LookupId");
 
                     b.HasIndex("ProductEntryId");
 
@@ -156,12 +148,20 @@ namespace MoriWEB.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)");
 
+                    b.Property<int>("TransactionSign")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.HasKey("Id");
 
                     b.HasIndex("LookupType", "Code")
                         .IsUnique();
 
-                    b.ToTable("Lookups");
+                    b.ToTable("Lookups", t =>
+                        {
+                            t.HasCheckConstraint("CK_Lookup_TransactionSign", "TransactionSign IN (0,1)");
+                        });
                 });
 
             modelBuilder.Entity("MoriWEB.Models.Product", b =>
@@ -254,6 +254,9 @@ namespace MoriWEB.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<double>("RemainingAmount")
+                        .HasColumnType("double");
+
                     b.Property<decimal?>("SalesPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -265,6 +268,38 @@ namespace MoriWEB.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("ProductEntries");
+                });
+
+            modelBuilder.Entity("MoriWEB.Models.ProductSaleConsumption", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("ProductEntryId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductSalesId")
+                        .HasColumnType("int");
+
+                    b.Property<double>("Quantity")
+                        .HasColumnType("double");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductEntryId");
+
+                    b.HasIndex("ProductSalesId");
+
+                    b.ToTable("ProductSaleConsumptions");
                 });
 
             modelBuilder.Entity("MoriWEB.Models.ProductSales", b =>
@@ -320,13 +355,9 @@ namespace MoriWEB.Migrations
             modelBuilder.Entity("MoriWEB.Models.CashTransaction", b =>
                 {
                     b.HasOne("MoriWEB.Models.Lookup", "CashTransactionType")
-                        .WithMany()
+                        .WithMany("Transactions")
                         .HasForeignKey("CashTransactionTypeId")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("MoriWEB.Models.Lookup", null)
-                        .WithMany("Transactions")
-                        .HasForeignKey("LookupId");
 
                     b.HasOne("MoriWEB.Models.ProductEntry", "ProductEntry")
                         .WithMany()
@@ -407,6 +438,25 @@ namespace MoriWEB.Migrations
                     b.Navigation("Company");
 
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("MoriWEB.Models.ProductSaleConsumption", b =>
+                {
+                    b.HasOne("MoriWEB.Models.ProductEntry", "ProductEntry")
+                        .WithMany()
+                        .HasForeignKey("ProductEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MoriWEB.Models.ProductSales", "ProductSales")
+                        .WithMany()
+                        .HasForeignKey("ProductSalesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductEntry");
+
+                    b.Navigation("ProductSales");
                 });
 
             modelBuilder.Entity("MoriWEB.Models.ProductSales", b =>

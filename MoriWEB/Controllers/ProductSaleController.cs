@@ -2,8 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using MoriWEB.DatabaseContext;
 using MoriWEB.Models;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace MoriWEB.Controllers
 {
@@ -15,50 +13,52 @@ namespace MoriWEB.Controllers
         [HttpGet]
         public IActionResult ProductSales() => View();
 
-        // LOOKUPS
+        // LOOKUPS: müşteri, ürün, ödeme tipleri
         [HttpGet]
         public async Task<IActionResult> Lookups()
         {
-            // 1) Müşteriler
             var customers = await _db.Customers.AsNoTracking()
                 .OrderBy(x => x.FirstName).ThenBy(x => x.LastName)
-                .Select(x => new {
+                .Select(x => new
+                {
                     id = x.Id,
                     name = ((x.FirstName ?? "") + " " + (x.LastName ?? "")).Trim(),
                     phone = x.PhoneNumber
                 })
                 .ToListAsync();
 
-            // 2) Stok girişleri (ürün, firma, etiket fiyat)
-            var entries = await _db.ProductEntries.AsNoTracking()
-                .Include(e => e.Product)
-                .Include(e => e.Company)
-                .OrderByDescending(e => e.CreateDate)
-                .Select(e => new {
-                    id = e.Id,
-                    productEntryId = e.Id,
-                    productId = e.ProductId,
-                    productCode = e.Product != null ? e.Product.Code : null,
-                    productName = e.Product != null ? e.Product.Name : null,
-                    companyId = e.CompanyId,
-                    companyName = e.Company != null ? e.Company.Name : null,
-                    amount = e.Amount,
-                    purchasePrice = e.PurchasePrice,
-                    labelPrice = e.SalesPrice  // <- stok girişindeki etiket
-                })
+            var products = await _db.Products.AsNoTracking()
+                .OrderBy(p => p.Name)
+                .Select(p => new { id = p.Id, code = p.Code, name = p.Name })
                 .ToListAsync();
 
-            // 3) Ödeme türleri
             var paymentTypes = await _db.Lookups.AsNoTracking()
                 .Where(l => l.LookupType == LookupType.PaymentType)
                 .OrderBy(l => l.Name)
                 .Select(l => new { id = l.Id, name = l.Name })
                 .ToListAsync();
 
-            return Json(new { customers, entries, paymentTypes });
+            return Json(new { customers, products, paymentTypes });
         }
 
-        // LİSTE / ARAMA
+        // Ürüne göre kalan stok ve son etiket fiyat
+        [HttpGet]
+        public async Task<IActionResult> ProductInfo(int productId)
+        {
+            var totalRemaining = await _db.ProductEntries.AsNoTracking()
+                .Where(pe => pe.ProductId == productId)
+                .SumAsync(pe => (double?)pe.RemainingAmount) ?? 0d;
+
+            var lastLabel = await _db.ProductEntries.AsNoTracking()
+                .Where(pe => pe.ProductId == productId && pe.SalesPrice != null)
+                .OrderByDescending(pe => pe.CreateDate)
+                .Select(pe => pe.SalesPrice)
+                .FirstOrDefaultAsync();
+
+            return Json(new { totalRemaining, lastLabelPrice = lastLabel ?? 0m });
+        }
+
+        // Liste
         [HttpGet]
         public async Task<IActionResult> Search(string? q)
         {
@@ -67,31 +67,31 @@ namespace MoriWEB.Controllers
             var list = await _db.ProductSales.AsNoTracking()
                 .Include(s => s.Customer)
                 .Include(s => s.PaymentType)
-                .Include(s => s.ProductEntry)!.ThenInclude(e => e.Product)
-                .Include(s => s.ProductEntry)!.ThenInclude(e => e.Company)
-                .Where(s =>
-                    q == "" ||
-                    ((s.Customer != null &&
-                        ((((s.Customer.FirstName ?? "").ToLower() + " " + (s.Customer.LastName ?? "").ToLower()).Contains(q)) ||
-                         ((s.Customer.PhoneNumber ?? "").ToLower().Contains(q)))) ||
-                     (s.ProductEntry != null && s.ProductEntry.Product != null &&
-                        (((s.ProductEntry.Product.Name ?? "").ToLower().Contains(q)) ||
-                         ((s.ProductEntry.Product.Code ?? "").ToLower().Contains(q)))) ||
-                     (s.ProductEntry != null && s.ProductEntry.Company != null &&
-                        ((s.ProductEntry.Company.Name ?? "").ToLower().Contains(q))) ||
-                     ((s.TotalPrice ?? 0).ToString().ToLower().Contains(q))
-                    )
-                )
                 .OrderByDescending(s => s.CreateDate)
                 .Select(s => new
                 {
                     s.Id,
                     CustomerName = s.Customer != null ? ((s.Customer.FirstName + " " + s.Customer.LastName).Trim()) : null,
                     CustomerPhone = s.Customer != null ? s.Customer.PhoneNumber : null,
-                    ProductEntryId = s.ProductEntryId,
-                    ProductCode = s.ProductEntry != null && s.ProductEntry.Product != null ? s.ProductEntry.Product.Code : null,
-                    ProductName = s.ProductEntry != null && s.ProductEntry.Product != null ? s.ProductEntry.Product.Name : null,
-                    CompanyName = s.ProductEntry != null && s.ProductEntry.Company != null ? s.ProductEntry.Company.Name : null,
+
+                    ProductId = _db.ProductSaleConsumptions
+                        .Where(c => c.ProductSalesId == s.Id)
+                        .OrderBy(c => c.Id)
+                        .Select(c => c.ProductEntry!.ProductId)
+                        .FirstOrDefault(),
+
+                    ProductCode = _db.ProductSaleConsumptions
+                        .Where(c => c.ProductSalesId == s.Id)
+                        .OrderBy(c => c.Id)
+                        .Select(c => c.ProductEntry!.Product!.Code)
+                        .FirstOrDefault(),
+
+                    ProductName = _db.ProductSaleConsumptions
+                        .Where(c => c.ProductSalesId == s.Id)
+                        .OrderBy(c => c.Id)
+                        .Select(c => c.ProductEntry!.Product!.Name)
+                        .FirstOrDefault(),
+
                     s.Amount,
                     s.SalesPrice,
                     s.SalesDiscount,
@@ -100,142 +100,272 @@ namespace MoriWEB.Controllers
                     s.PaymentTypeId,
                     PaymentTypeName = s.PaymentType != null ? s.PaymentType.Name : null,
                     s.CustomerId,
-                    s.CreateDate,
-                    LabelPrice = s.ProductEntry != null ? s.ProductEntry.SalesPrice : null
+                    s.CreateDate
                 })
                 .ToListAsync();
+
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                list = list.Where(x =>
+                    (x.ProductName ?? "").ToLower().Contains(q) ||
+                    (x.ProductCode ?? "").ToLower().Contains(q) ||
+                    (x.CustomerName ?? "").ToLower().Contains(q) ||
+                    (x.CustomerPhone ?? "").ToLower().Contains(q) ||
+                    (x.PaymentTypeName ?? "").ToLower().Contains(q) ||
+                    (x.TotalPrice?.ToString().ToLower().Contains(q) ?? false)
+                ).ToList();
+            }
 
             return Json(list);
         }
 
-        // --- yardımcı: kasa tipi bul
-        private async Task<int?> FindCashTransactionTypeId(string code)
+        // CashTransactionType Id bulma (Lookups üzerinden)
+        private async Task<int?> FindCashTransactionTypeIdForSale()
         {
-            var ct = await _db.Lookups.AsNoTracking()
-                .FirstOrDefaultAsync(l => l.LookupType == LookupType.CashTransactionType && l.Code == code);
-            return ct?.Id;
+            // 1) Code ile dene (tercih edilen)
+            var byCode = await _db.Lookups.AsNoTracking()
+                .Where(l => l.LookupType == LookupType.CashTransactionType && l.Code == "SATIS")
+                .Select(l => (int?)l.Id)
+                .FirstOrDefaultAsync();
+            if (byCode != null) return byCode;
+
+            // 2) Sign = 1 (Çıkış / +) olan ilk kaydı al
+            var bySign = await _db.Lookups.AsNoTracking()
+                .Where(l => l.LookupType == LookupType.CashTransactionType && l.TransactionSign == 1)
+                .OrderBy(l => l.Id)
+                .Select(l => (int?)l.Id)
+                .FirstOrDefaultAsync();
+            if (bySign != null) return bySign;
+
+            // 3) (İstersen) sabit ID kullan:
+            // const int HARDCODED_ID = 1; return HARDCODED_ID;
+
+            return null;
         }
 
-        // CREATE
+        // CREATE — FIFO tüketim + kasa
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] ProductSales dto)
+        public async Task<IActionResult> Create([FromBody] ProductSales dto, int productId)
         {
             if (dto == null) return BadRequest("Geçersiz veri");
-            if (dto.ProductEntryId == null || dto.ProductEntryId <= 0) return BadRequest("Stok girişi zorunludur.");
+            if (productId <= 0) return BadRequest("Ürün zorunludur.");
             if (dto.CustomerId == null || dto.CustomerId <= 0) return BadRequest("Müşteri zorunludur.");
             if (dto.PaymentTypeId == null || dto.PaymentTypeId <= 0) return BadRequest("Ödeme türü zorunludur.");
             if ((dto.Amount ?? 0) <= 0) return BadRequest("Miktar > 0 olmalı.");
             if ((dto.SalesPrice ?? 0) <= 0) return BadRequest("Satış fiyatı > 0 olmalı.");
             if ((dto.SalesDiscount ?? 0) < 0) return BadRequest("İskonto 0'dan küçük olamaz.");
 
-            var entry = await _db.ProductEntries
-                .Include(e => e.Product).Include(e => e.Company)
-                .AsNoTracking().FirstOrDefaultAsync(e => e.Id == dto.ProductEntryId);
-            if (entry == null) return BadRequest("Stok girişi bulunamadı.");
-
-            var unit = dto.SalesPrice ?? 0m;
-            var disc = dto.SalesDiscount ?? 0m;
-            var netUnit = unit * (1 - (disc / 100m));
-            var total = netUnit * (decimal)(dto.Amount ?? 0);
-
-            var entity = new ProductSales
+            var strategy = _db.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
             {
-                CustomerId = dto.CustomerId,
-                ProductEntryId = dto.ProductEntryId,
-                Amount = dto.Amount,
-                SalesPrice = dto.SalesPrice,
-                SalesDiscount = dto.SalesDiscount,
-                NetPrice = netUnit,
-                TotalPrice = total,
-                PaymentTypeId = dto.PaymentTypeId,
-                CreateDate = dto.CreateDate == default ? DateTime.Now : dto.CreateDate
-            };
+                await using var tx = await _db.Database.BeginTransactionAsync();
 
-            _db.ProductSales.Add(entity);
-            await _db.SaveChangesAsync();
+                // FIFO stok kontrolü
+                double required = dto.Amount ?? 0;
+                var fifoList = await _db.ProductEntries
+                    .Where(pe => pe.ProductId == productId && pe.RemainingAmount > 0)
+                    .OrderBy(pe => pe.CreateDate)
+                    .ToListAsync();
 
-            // Kasa kaydı — SATIŞ (gelir)
-            var cashTypeId = await FindCashTransactionTypeId("SATIS");
-            var cash = new CashTransaction
-            {
-                TransactionType = 0, // <- diğerinin tam tersi, senin isteğin
-                ProductSalesId = entity.Id,
-                CashTransactionTypeId = cashTypeId,
-                Amount = total,
-                Description = $"Satış: {(entry.Product?.Code)} - {(entry.Product?.Name)} x{dto.Amount}",
-                CreateDate = entity.CreateDate
-            };
-            _db.CashTransactions.Add(cash);
-            await _db.SaveChangesAsync();
+                double available = fifoList.Sum(x => x.RemainingAmount);
+                if (available + 1e-9 < required)
+                    return BadRequest($"Yetersiz stok. Mevcut: {available}, İstenen: {required}");
 
-            return Ok(new { ok = true, id = entity.Id });
+                var unit = dto.SalesPrice ?? 0m;
+                var disc = dto.SalesDiscount ?? 0m;
+                var netUnit = unit * (1 - (disc / 100m));
+                var total = netUnit * (decimal)required;
+
+                var sale = new ProductSales
+                {
+                    CustomerId = dto.CustomerId,
+                    ProductEntryId = null,   // FIFO ile birden çok girişten tüketeceğiz
+                    Amount = dto.Amount,
+                    SalesPrice = dto.SalesPrice,
+                    SalesDiscount = dto.SalesDiscount,
+                    NetPrice = netUnit,
+                    TotalPrice = total,
+                    PaymentTypeId = dto.PaymentTypeId,
+                    CreateDate = dto.CreateDate == default ? DateTime.Now : dto.CreateDate
+                };
+
+                _db.ProductSales.Add(sale);
+                await _db.SaveChangesAsync();
+
+                // FIFO tüketimler
+                double need = required;
+                foreach (var pe in fifoList)
+                {
+                    if (need <= 1e-9) break;
+                    var take = Math.Min(pe.RemainingAmount, need);
+                    pe.RemainingAmount -= take;
+                    need -= take;
+
+                    _db.ProductSaleConsumptions.Add(new ProductSaleConsumption
+                    {
+                        ProductSalesId = sale.Id,
+                        ProductEntryId = pe.Id,
+                        Quantity = take,
+                        UnitCost = pe.PurchasePrice ?? 0m,
+                        CreateDate = sale.CreateDate
+                    });
+                }
+                await _db.SaveChangesAsync();
+
+                // Kasa: satış geliri → CashTransactionType (TransactionSign=1 / Çıkış +)
+                var cashTypeId = await FindCashTransactionTypeIdForSale();
+                if (cashTypeId == null) return BadRequest("Kasa işlem türü (SATIS/Çıkış) tanımlı değil.");
+
+                _db.CashTransactions.Add(new CashTransaction
+                {
+                    ProductSalesId = sale.Id,
+                    CashTransactionTypeId = cashTypeId,
+                    Amount = total,
+                    Description = $"Satış (ÜrünId={productId}) x{required}",
+                    CreateDate = sale.CreateDate
+                });
+                await _db.SaveChangesAsync();
+
+                await tx.CommitAsync();
+                return Ok(new { ok = true, id = sale.Id }) as IActionResult;
+            });
         }
 
-        // UPDATE
+        // UPDATE — eski tüketimi iade + yeniden FIFO + kasa güncelle
         [HttpPost]
-        public async Task<IActionResult> Update([FromBody] ProductSales dto)
+        public async Task<IActionResult> Update([FromBody] ProductSales dto, int productId)
         {
             if (dto == null || dto.Id <= 0) return BadRequest("Geçersiz Id");
-            if (dto.ProductEntryId == null || dto.ProductEntryId <= 0) return BadRequest("Stok girişi zorunludur.");
+            if (productId <= 0) return BadRequest("Ürün zorunludur.");
             if (dto.CustomerId == null || dto.CustomerId <= 0) return BadRequest("Müşteri zorunludur.");
             if (dto.PaymentTypeId == null || dto.PaymentTypeId <= 0) return BadRequest("Ödeme türü zorunludur.");
             if ((dto.Amount ?? 0) <= 0) return BadRequest("Miktar > 0 olmalı.");
             if ((dto.SalesPrice ?? 0) <= 0) return BadRequest("Satış fiyatı > 0 olmalı.");
             if ((dto.SalesDiscount ?? 0) < 0) return BadRequest("İskonto 0'dan küçük olamaz.");
 
-            var s = await _db.ProductSales.FirstOrDefaultAsync(x => x.Id == dto.Id);
-            if (s == null) return NotFound();
-
-            if (!await _db.ProductEntries.AnyAsync(e => e.Id == dto.ProductEntryId))
-                return BadRequest("Stok girişi bulunamadı.");
-
-            s.CustomerId = dto.CustomerId;
-            s.ProductEntryId = dto.ProductEntryId;
-            s.Amount = dto.Amount;
-            s.SalesPrice = dto.SalesPrice;
-            s.SalesDiscount = dto.SalesDiscount;
-
-            var unit = dto.SalesPrice ?? 0m;
-            var disc = dto.SalesDiscount ?? 0m;
-            s.NetPrice = unit * (1 - (disc / 100m));
-            s.TotalPrice = s.NetPrice * (decimal)(dto.Amount ?? 0);
-
-            s.PaymentTypeId = dto.PaymentTypeId;
-            s.CreateDate = dto.CreateDate == default ? s.CreateDate : dto.CreateDate;
-
-            await _db.SaveChangesAsync();
-
-            // Bağlı kasa hareketini güncelle
-            var cash = await _db.CashTransactions.FirstOrDefaultAsync(c => c.ProductSalesId == s.Id);
-            if (cash != null)
+            var strategy = _db.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
             {
-                cash.TransactionType = 0; // satış
-                cash.Amount = s.TotalPrice;
-                cash.Description = $"Satış (Güncelleme): SalesId={s.Id} x{s.Amount}";
-                cash.CreateDate = s.CreateDate;
-                await _db.SaveChangesAsync();
-            }
+                await using var tx = await _db.Database.BeginTransactionAsync();
 
-            return Ok(new { ok = true, id = s.Id });
+                var sale = await _db.ProductSales.FirstOrDefaultAsync(x => x.Id == dto.Id);
+                if (sale == null) return NotFound();
+
+                // Eski tüketimleri iade
+                var oldCons = await _db.ProductSaleConsumptions
+                    .Where(c => c.ProductSalesId == sale.Id)
+                    .Include(c => c.ProductEntry)
+                    .ToListAsync();
+
+                foreach (var c in oldCons)
+                    if (c.ProductEntry != null) c.ProductEntry.RemainingAmount += c.Quantity;
+
+                _db.ProductSaleConsumptions.RemoveRange(oldCons);
+                await _db.SaveChangesAsync();
+
+                // Yeni FIFO
+                double required = dto.Amount ?? 0;
+                var fifoList = await _db.ProductEntries
+                    .Where(pe => pe.ProductId == productId && pe.RemainingAmount > 0)
+                    .OrderBy(pe => pe.CreateDate)
+                    .ToListAsync();
+
+                double available = fifoList.Sum(x => x.RemainingAmount);
+                if (available + 1e-9 < required)
+                    return BadRequest($"Yetersiz stok. Mevcut: {available}, İstenen: {required}");
+
+                var unit = dto.SalesPrice ?? 0m;
+                var disc = dto.SalesDiscount ?? 0m;
+                sale.CustomerId = dto.CustomerId;
+                sale.ProductEntryId = null;
+                sale.Amount = dto.Amount;
+                sale.SalesPrice = dto.SalesPrice;
+                sale.SalesDiscount = dto.SalesDiscount;
+                sale.NetPrice = unit * (1 - (disc / 100m));
+                sale.TotalPrice = sale.NetPrice * (decimal)required;
+                sale.PaymentTypeId = dto.PaymentTypeId;
+                sale.CreateDate = dto.CreateDate == default ? sale.CreateDate : dto.CreateDate;
+
+                await _db.SaveChangesAsync();
+
+                double need = required;
+                foreach (var pe in fifoList)
+                {
+                    if (need <= 1e-9) break;
+                    var take = Math.Min(pe.RemainingAmount, need);
+                    pe.RemainingAmount -= take;
+                    need -= take;
+
+                    _db.ProductSaleConsumptions.Add(new ProductSaleConsumption
+                    {
+                        ProductSalesId = sale.Id,
+                        ProductEntryId = pe.Id,
+                        Quantity = take,
+                        UnitCost = pe.PurchasePrice ?? 0m,
+                        CreateDate = sale.CreateDate
+                    });
+                }
+                await _db.SaveChangesAsync();
+
+                // Kasa güncelle
+                var cash = await _db.CashTransactions.FirstOrDefaultAsync(c => c.ProductSalesId == sale.Id);
+                if (cash != null)
+                {
+                    cash.Amount = sale.TotalPrice;
+                    cash.Description = $"Satış (Güncelleme): SalesId={sale.Id} x{sale.Amount}";
+                    cash.CreateDate = sale.CreateDate;
+
+                    // Tür korunur; yine de null ise bul ve set et
+                    if (!(cash.CashTransactionTypeId > 0))
+                    {
+                        var ctId = await FindCashTransactionTypeIdForSale();
+                        if (ctId == null) return BadRequest("Kasa işlem türü (SATIS/Çıkış) tanımlı değil.");
+                        cash.CashTransactionTypeId = ctId;
+                    }
+
+                    await _db.SaveChangesAsync();
+                }
+
+                await tx.CommitAsync();
+                return Ok(new { ok = true, id = sale.Id }) as IActionResult;
+            });
         }
 
-        // DELETE
+        // DELETE — stok iade + kasa sil
         [HttpPost]
         public async Task<IActionResult> Delete([FromBody] ProductSales dto)
         {
             if (dto == null || dto.Id <= 0) return BadRequest("Geçersiz Id");
 
-            var s = await _db.ProductSales.FirstOrDefaultAsync(x => x.Id == dto.Id);
-            if (s == null) return NotFound();
+            var strategy = _db.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await _db.Database.BeginTransactionAsync();
 
-            // kasa kayıtlarını da sil
-            var cash = await _db.CashTransactions.Where(c => c.ProductSalesId == s.Id).ToListAsync();
-            if (cash.Count > 0)
-                _db.CashTransactions.RemoveRange(cash);
+                var sale = await _db.ProductSales.FirstOrDefaultAsync(x => x.Id == dto.Id);
+                if (sale == null) return NotFound();
 
-            _db.ProductSales.Remove(s);
-            await _db.SaveChangesAsync();
-            return Ok(new { ok = true });
+                var cons = await _db.ProductSaleConsumptions
+                    .Where(c => c.ProductSalesId == sale.Id)
+                    .Include(c => c.ProductEntry)
+                    .ToListAsync();
+
+                foreach (var c in cons)
+                    if (c.ProductEntry != null) c.ProductEntry.RemainingAmount += c.Quantity;
+
+                _db.ProductSaleConsumptions.RemoveRange(cons);
+                await _db.SaveChangesAsync();
+
+                var cash = await _db.CashTransactions.Where(c => c.ProductSalesId == sale.Id).ToListAsync();
+                if (cash.Count > 0) _db.CashTransactions.RemoveRange(cash);
+                await _db.SaveChangesAsync();
+
+                _db.ProductSales.Remove(sale);
+                await _db.SaveChangesAsync();
+
+                await tx.CommitAsync();
+                return Ok(new { ok = true }) as IActionResult;
+            });
         }
     }
 }
