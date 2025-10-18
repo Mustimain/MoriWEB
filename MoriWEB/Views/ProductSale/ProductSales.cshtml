@@ -2,11 +2,14 @@
     ViewData["Title"] = "Stok Çıkışları";
     Layout = "_Layout";
 }
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet" />
+
 <div class="container-fluid py-3">
   <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
     <div>
       <h3 class="mb-0">Stok Çıkışları</h3>
-      <small class="text-muted">Soldan satış seç → sağda güncelle/sil. Seçim yokken formu doldurup <strong>Kaydet</strong>.</small>
     </div>
     <span class="badge rounded-pill bg-secondary-subtle text-secondary" id="listCount">0</span>
   </div>
@@ -34,7 +37,6 @@
               </div>
               <div>
                 <h5 class="mb-0" id="formTitle">Yeni Stok Çıkışı</h5>
-                <small class="text-muted" id="formSub">Seçim yokken Kaydet görünür; seçim yapınca Güncelle/Sil.</small>
               </div>
             </div>
             <span class="badge text-bg-light border" id="selectedIdBadge" style="display:none;">ID:</span>
@@ -97,6 +99,12 @@
               <input id="LabelPrice" class="form-control" readonly>
             </div>
 
+            <div class="col-md-6">
+              <label class="form-label">Ödenen Tutar</label>
+              <input id="PaymentAmount" type="number" min="0" step="0.01" class="form-control" value="0">
+              <div class="form-text">Peşin alınan kısım. Kasa kaydına sadece bu tutar yazılır.</div>
+            </div>
+
             <div class="col-12 d-flex gap-2 justify-content-end mt-2">
               <button type="button" class="btn btn-primary" id="btnSave">
                 <i class="bi bi-save2"></i> Kaydet
@@ -116,57 +124,104 @@
 </div>
 
 @section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script>
+/* ==== Helpers ==== */
 function g(o,...keys){ for(const k of keys){ if(o && o[k]!=null) return o[k]; } return ""; }
-function normalizeDateForInput(v){ if(!v) return ""; if(typeof v==="string") return v.length>=10?v.substring(0,10):v; if(v instanceof Date){const d=v; const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`;} return ""; }
+function normalizeDateForInput(v){ if(!v) return ""; if(typeof v==="string") return v.length>=10?v.substring(0,10):v; const d=new Date(v); if(isNaN(d)) return ""; const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
 function todayStr(){ const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
 
+/* ==== Refs ==== */
 const idBadge=document.getElementById('selectedIdBadge');
 const formTitle=document.getElementById('formTitle');
-const formSub=document.getElementById('formSub');
 const listHost=document.getElementById('salesList');
 const listCount=document.getElementById('listCount');
 const searchBox=document.getElementById('searchBox');
-
 const btnSave=document.getElementById('btnSave');
 const btnUpdate=document.getElementById('btnUpdate');
 const btnDelete=document.getElementById('btnDelete');
-
 let currentStock=0;
 
+/* ==== Tom Select ==== */
+const ts = {}; // { CustomerId, ProductId, PaymentTypeId }
+function initTom(selectId, items, cfg={}){
+  const el=document.getElementById(selectId); if(!el) return;
+  if(ts[selectId]){ ts[selectId].destroy(); ts[selectId]=null; }
+  const opts=(items||[]).map(x=>({
+    id:x.id,
+    code:x.code,
+    name:x.name,
+    phone:x.phone,
+    label: (cfg.template==='product')
+      ? [x.code, x.name].filter(Boolean).join(' — ')
+      : (cfg.template==='customer'
+          ? (x.phone ? `${x.name} (${x.phone})` : x.name)
+          : (x.name ?? ''))
+  }));
+  el.innerHTML = `<option value="">Seçiniz...</option>`;
+  ts[selectId] = new TomSelect(el,{
+    valueField:'id',
+    labelField:'label',
+    searchField: cfg.searchFields || ['name','code','phone','label'],
+    options: opts,
+    items: [],
+    allowEmptyOption:true,
+    placeholder:'Seçiniz...',
+    create:false,
+    shouldSort:false,
+    render:{
+      option:(d,esc)=>`<div>${esc(d.label)}</div>`,
+      item:(d,esc)=>`<div>${esc(d.label)}</div>`
+    }
+  });
+}
+
+/* ==== Sayaç ==== */
 function refreshCount(){ const c=document.querySelectorAll('#salesList .sale-item').length; if(listCount) listCount.textContent=c; }
+
+/* ==== Seçim buton durumu ==== */
 function setSelected(id){
   const has=!!id && id>0;
   if(has){
     idBadge.style.display='inline-block'; idBadge.textContent=`ID:${id}`;
-    formTitle.textContent='Stok Çıkışı Güncelle'; formSub.textContent='Düzenleyip Güncelle/Sil.';
+    formTitle.textContent='Stok Çıkışı Güncelle';
     btnSave.classList.add('d-none'); btnUpdate.classList.remove('d-none'); btnDelete.classList.remove('d-none');
   }else{
     idBadge.style.display='none'; idBadge.textContent='';
-    formTitle.textContent='Yeni Stok Çıkışı'; formSub.textContent='Seçim yokken Kaydet görünür.';
+    formTitle.textContent='Yeni Stok Çıkışı';
     btnSave.classList.remove('d-none'); btnUpdate.classList.add('d-none'); btnDelete.classList.add('d-none');
   }
 }
 function getSelectedId(){ const m=(idBadge.textContent||"").match(/ID:\s*(\d+)/i); return m?parseInt(m[1]):0; }
 
+/* ==== Form I/O ==== */
 function setForm(obj){
-  const map={ CustomerId:['customerId','CustomerId'], ProductId:['productId','ProductId'],
-    PaymentTypeId:['paymentTypeId','PaymentTypeId'], Amount:['amount','Amount'],
-    SalesPrice:['salesPrice','SalesPrice'], SalesDiscount:['salesDiscount','SalesDiscount'],
-    NetPrice:['netPrice','NetPrice'], TotalPrice:['totalPrice','TotalPrice'], CreateDate:['createDate','CreateDate'] };
+  const map={
+    CustomerId:['customerId','CustomerId'],
+    ProductId:['productId','ProductId'],
+    PaymentTypeId:['paymentTypeId','PaymentTypeId'],
+    Amount:['amount','Amount'],
+    SalesPrice:['salesPrice','SalesPrice'],
+    SalesDiscount:['salesDiscount','SalesDiscount'],
+    NetPrice:['netPrice','NetPrice'],
+    TotalPrice:['totalPrice','TotalPrice'],
+    CreateDate:['createDate','CreateDate']
+  };
   for(const [id,keys] of Object.entries(map)){
-    const el=document.getElementById(id); if(!el) continue;
-    let val=g(obj,...keys); if(id==='CreateDate') val=normalizeDateForInput(val);
-    el.value=(val??'')===null?'':val; el.classList?.remove('is-invalid');
+    let val=g(obj,...keys);
+    if(id==='CreateDate') val=normalizeDateForInput(val);
+    if(ts[id]){ ts[id].setValue(val?String(val):""); ts[id].wrapper.classList.remove('is-invalid'); }
+    else { const el=document.getElementById(id); if(el){ el.value=(val??'')===null?'':val; el.classList?.remove('is-invalid'); } }
   }
 }
 function getForm(){
   const toInt=v=>v===""?null:parseInt(v,10);
   const toDec=v=>v===""?null:parseFloat(v);
+  const getSel=id=> ts[id] ? (ts[id].getValue() || "") : (document.getElementById(id)?.value || "");
   return {
-    CustomerId: toInt(document.getElementById('CustomerId')?.value||""),
-    ProductId:  toInt(document.getElementById('ProductId')?.value||""),
-    PaymentTypeId: toInt(document.getElementById('PaymentTypeId')?.value||""),
+    CustomerId: toInt(getSel('CustomerId')),
+    ProductId:  toInt(getSel('ProductId')),
+    PaymentTypeId: toInt(getSel('PaymentTypeId')),
     Amount: toDec(document.getElementById('Amount')?.value||""),
     SalesPrice: toDec(document.getElementById('SalesPrice')?.value||""),
     SalesDiscount: toDec(document.getElementById('SalesDiscount')?.value||""),
@@ -182,9 +237,11 @@ function clearForm(){
   document.getElementById('NetPrice').value="";
   document.getElementById('TotalPrice').value="";
   document.getElementById('LabelPrice').value="";
+  document.getElementById('PaymentAmount').value="0";
   currentStock=0; document.getElementById('stockInfo').textContent='Stok: -';
 }
 
+/* ==== Hesaplar ==== */
 function calcNetAndTotal(){
   const amt=parseFloat(document.getElementById('Amount').value||"0");
   const sp=parseFloat(document.getElementById('SalesPrice').value||"0");
@@ -195,7 +252,15 @@ function calcNetAndTotal(){
 }
 ['Amount','SalesPrice','SalesDiscount'].forEach(id=>document.getElementById(id)?.addEventListener('input',calcNetAndTotal));
 
-/* Liste render */
+function validatePaidNotExceedTotal(){
+  const pay = parseFloat(document.getElementById('PaymentAmount').value||'0');
+  const total = parseFloat(document.getElementById('TotalPrice').value||'0');
+  if (isNaN(pay) || pay < 0) { alert('Ödenen Tutar 0 veya daha büyük olmalı.'); return false; }
+  if (pay > total) { alert('Ödenen Tutar toplamı geçemez.'); return false; }
+  return true;
+}
+
+/* ==== Liste ==== */
 function renderList(items){
   listHost.innerHTML="";
   items.forEach(s=>{
@@ -220,11 +285,10 @@ function renderList(items){
       setForm(s);
       setSelected(id);
 
-      // Ürünü formda seç ve stok/etiket bilgisini yüklet
+      // ürünü seçince stok ve son etiket fiyatını çek
       if (s.productId){
-        const sel = document.getElementById('ProductId');
-        sel.value = s.productId;
-        sel.dispatchEvent(new Event('change'));
+        if(ts['ProductId']){ ts['ProductId'].setValue(String(s.productId)); }
+        document.getElementById('ProductId').dispatchEvent(new Event('change'));
       }
     });
     listHost.appendChild(btn);
@@ -232,12 +296,13 @@ function renderList(items){
   refreshCount();
 }
 
-/* API */
+/* ==== API ==== */
 async function apiLookups(){ const r=await fetch('/ProductSale/Lookups'); if(!r.ok) throw new Error('Lookups alınamadı'); return r.json(); }
 async function apiList(q=""){ const r=await fetch(`/ProductSale/Search?q=${encodeURIComponent(q)}`); if(!r.ok) throw new Error('Liste alınamadı'); return r.json(); }
 async function apiCreate(model){
-  const productId = document.getElementById('ProductId').value || "";
-  const r=await fetch(`/ProductSale/Create?productId=${encodeURIComponent(productId)}`,{
+  const productId = ts['ProductId']?.getValue() || document.getElementById('ProductId').value || "";
+  const paymentAmount = document.getElementById('PaymentAmount').value || "0";
+  const r=await fetch(`/ProductSale/Create?productId=${encodeURIComponent(productId)}&paymentAmount=${encodeURIComponent(paymentAmount)}`,{
     method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(model)
   });
   if(r.status===400){ const t=await r.text().catch(()=> ''); alert(t || 'Zorunlu alanları kontrol edin.'); return {ok:false}; }
@@ -245,8 +310,9 @@ async function apiCreate(model){
   return {ok:true, data: await r.json()};
 }
 async function apiUpdate(id, model){
-  const productId = document.getElementById('ProductId').value || "";
-  const r=await fetch(`/ProductSale/Update?productId=${encodeURIComponent(productId)}`,{
+  const productId = ts['ProductId']?.getValue() || document.getElementById('ProductId').value || "";
+  const paymentAmount = document.getElementById('PaymentAmount').value || "0";
+  const r=await fetch(`/ProductSale/Update?productId=${encodeURIComponent(productId)}&paymentAmount=${encodeURIComponent(paymentAmount)}`,{
     method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({...model, Id:id})
   });
   if(r.status===404){ alert('Kayıt bulunamadı.'); return {ok:false}; }
@@ -262,22 +328,22 @@ async function apiDelete(id){
   return {ok:true};
 }
 
-/* Select doldurucu */
-function fillSelect(id, items, getText){
-  const sel=document.getElementById(id); if(!sel) return;
-  sel.innerHTML = '<option value="">Seçiniz...</option>' + (items||[]).map(x=>`<option value="${x.id}">${getText(x)}</option>`).join('');
-}
-
-/* Doğrulama */
+/* ==== Validasyon ==== */
 function validateForm(){
   let ok=true;
-  ['CustomerId','ProductId','PaymentTypeId'].forEach(id=>{
-    const el=document.getElementById(id); const bad=!el.value || el.value==='0';
-    el.classList.toggle('is-invalid', bad); if(bad) ok=false;
-  });
+  const custBad = !ts['CustomerId'] || !ts['CustomerId'].getValue();
+  const prodBad = !ts['ProductId']  || !ts['ProductId'].getValue();
+  const payBad  = !ts['PaymentTypeId'] || !ts['PaymentTypeId'].getValue();
+
+  if(ts['CustomerId'])   ts['CustomerId'].wrapper.classList.toggle('is-invalid', custBad);
+  if(ts['ProductId'])    ts['ProductId'].wrapper.classList.toggle('is-invalid',  prodBad);
+  if(ts['PaymentTypeId'])ts['PaymentTypeId'].wrapper.classList.toggle('is-invalid', payBad);
+
+  if(custBad || prodBad || payBad) ok=false;
+
   const amount=parseFloat(document.getElementById('Amount').value||'0');
   const price=parseFloat(document.getElementById('SalesPrice').value||'0');
-  const disc=parseFloat(document.getElementById('SalesDiscount').value||'0');
+  const disc =parseFloat(document.getElementById('SalesDiscount').value||'0');
   const aEl=document.getElementById('Amount'), pEl=document.getElementById('SalesPrice'), dEl=document.getElementById('SalesDiscount');
   const aBad=!(amount>0), pBad=!(price>0), dBad=!(disc>=0);
   aEl.classList.toggle('is-invalid', aBad); pEl.classList.toggle('is-invalid', pBad); dEl.classList.toggle('is-invalid', dBad);
@@ -285,43 +351,52 @@ function validateForm(){
   return ok;
 }
 
-/* İlk yükleme */
+/* ==== İlk yükleme ==== */
 (async ()=>{
   const lk = await apiLookups();
-  fillSelect('CustomerId', lk.customers, x=> x.phone ? `${x.name} (${x.phone})` : x.name);
-  fillSelect('ProductId', lk.products, x=> [x.code, x.name].filter(Boolean).join(' — '));
-  fillSelect('PaymentTypeId', lk.paymentTypes, x=> x.name);
+  initTom('CustomerId', lk.customers, { template:'customer', searchFields:['name','phone','label'] });
+  initTom('ProductId',  lk.products,  { template:'product',  searchFields:['code','name','label'] });
+  initTom('PaymentTypeId', lk.paymentTypes, { template:'plain', searchFields:['name','label'] });
 
   const cd=document.getElementById('CreateDate'); if(cd) cd.value=todayStr();
 
-  document.getElementById('ProductId')?.addEventListener('change', async function(){
-    const pid=parseInt(this.value||"0",10);
-    if(!pid){ currentStock=0; document.getElementById('stockInfo').textContent='Stok: -'; document.getElementById('LabelPrice').value=""; return; }
-    const r=await fetch(`/ProductSale/ProductInfo?productId=${pid}`); if(!r.ok) return;
-    const d=await r.json();
-    currentStock=d?.totalRemaining||0;
-    document.getElementById('stockInfo').textContent=`Stok: ${currentStock}`;
-    document.getElementById('LabelPrice').value=Number(d?.lastLabelPrice||0).toFixed(2);
-  });
+  // Ürün seçimi → stok & son etiket
+  const bindProductChange = ()=>{
+    const handler = async ()=>{
+      const val = ts['ProductId']?.getValue() || document.getElementById('ProductId').value || "";
+      const pid = parseInt(val||"0",10);
+      if(!pid){ currentStock=0; document.getElementById('stockInfo').textContent='Stok: -'; document.getElementById('LabelPrice').value=""; return; }
+      const r=await fetch(`/ProductSale/ProductInfo?productId=${pid}`); if(!r.ok) return;
+      const d=await r.json();
+      currentStock=d?.totalRemaining||0;
+      document.getElementById('stockInfo').textContent=`Stok: ${currentStock}`;
+      document.getElementById('LabelPrice').value=Number(d?.lastLabelPrice||0).toFixed(2);
+    };
+    // TomSelect event
+    if(ts['ProductId']) ts['ProductId'].on('change', handler);
+    // native fallback
+    document.getElementById('ProductId')?.addEventListener('change', handler);
+  };
+  bindProductChange();
 
   const items = await apiList(""); renderList(items); setSelected(0);
 })();
 
-/* Etkileşimler */
+/* ==== Etkileşimler ==== */
 searchBox?.addEventListener('input', async function(){
   const items=await apiList(this.value||""); renderList(items); setSelected(0);
 });
 btnSave?.addEventListener('click', async ()=>{
-  if(!validateForm()){ alert('Zorunlu alanları kontrol edin.'); return; }
   calcNetAndTotal();
+  if(!validateForm() || !validatePaidNotExceedTotal()){ alert('Zorunlu alanları kontrol edin.'); return; }
   const r=await apiCreate(getForm()); if(!r.ok) return;
   alert('Stok çıkışı oluşturuldu.');
   const items=await apiList(searchBox?.value||""); renderList(items); clearForm(); setSelected(0);
 });
 btnUpdate?.addEventListener('click', async ()=>{
   const id=getSelectedId(); if(!id){ alert('Seçim yok'); return; }
-  if(!validateForm()){ alert('Zorunlu alanları kontrol edin.'); return; }
   calcNetAndTotal();
+  if(!validateForm() || !validatePaidNotExceedTotal()){ alert('Zorunlu alanları kontrol edin.'); return; }
   const r=await apiUpdate(id, getForm()); if(!r.ok) return;
   alert('Güncellendi.');
   const items=await apiList(searchBox?.value||""); renderList(items); clearForm(); setSelected(0);
@@ -341,5 +416,16 @@ btnDelete?.addEventListener('click', async ()=>{
 .id-badge{ color:#000!important; background-color:#f8f9fa!important; border:1px solid #dee2e6!important; font-weight:500; }
 @@media (max-width:991.98px){ #salesList{ max-height:40vh; overflow:auto; } }
 .is-invalid{ border-color:#dc3545!important; }
+
+/* Tom Select görünüm/invalid */
+.ts-wrapper{ border:0!important; box-shadow:none!important; }
+.ts-wrapper .ts-control{
+  border:1px solid var(--bs-border-color)!important;
+  border-radius:.375rem!important;
+  min-height:calc(2.5rem + 2px);
+  padding:.375rem .75rem;
+  box-shadow:none!important;
+}
+.ts-wrapper.is-invalid .ts-control{ border-color:#dc3545!important; }
 </style>
 }

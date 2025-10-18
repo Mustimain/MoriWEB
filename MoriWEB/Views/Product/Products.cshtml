@@ -8,10 +8,7 @@
 
 <div class="container-fluid py-3">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <div>
-            <h3 class="mb-0">Ürünler</h3>
-            <small class="text-muted">Soldan ürün seç → sağda güncelle/sil. Seçim yokken formu doldurup <strong>Kaydet</strong> ile yeni ürün oluştur.</small>
-        </div>
+        <div><h3 class="mb-0">Ürünler</h3></div>
     </div>
 
     <div class="row g-3">
@@ -45,27 +42,32 @@
                             <div class="rounded-circle bg-primary bg-opacity-10 p-2">
                                 <i class="bi bi-box fs-5 text-primary"></i>
                             </div>
-                            <div>
-                                <h5 class="mb-0" id="formTitle">Yeni Ürün</h5>
-                                <small class="text-muted" id="formSub">Seçim yokken Kaydet → yeni ürün oluşturur; seçim yapınca Güncelle/Sil görünür.</small>
-                            </div>
+                            <div><h5 class="mb-0" id="formTitle">Yeni Ürün</h5></div>
                         </div>
                         <span class="badge text-bg-light border" id="selectedIdBadge" style="display:none;">ID:</span>
                     </div>
 
                     <div class="row g-3">
-                        <input id="Code" type="hidden" />
-
-                        <div class="col-md-8">
-                            <label class="form-label">Stok Adı</label>
-                            <input id="Name" class="form-control" placeholder="Ürün adı" required>
+                        <!-- STOK KODU (sadece okunur + canlı önizleme) -->
+                        <div class="col-md-6">
+                            <label class="form-label">Stok Kodu</label>
+                            <input id="Code" class="form-control" readonly>
+                            <div class="form-text" id="codeHelp">
+                                Seçimlere göre önizleme güncellenir. Kaydettiğinizde son numara otomatik atanır.
+                            </div>
                         </div>
-                        <div class="col-md-4">
+
+                        <div class="col-md-6">
                             <label class="form-label">Tarih</label>
                             <input id="CreateDate" type="date" class="form-control" required>
                         </div>
 
-                        <!-- NOT: form-select sınıfı YOK; Tom Select tek border çizecek -->
+                        <div class="col-md-12">
+                            <label class="form-label">Stok Adı</label>
+                            <input id="Name" class="form-control" placeholder="Ürün adı" required>
+                        </div>
+
+                        <!-- Tom Select alanları -->
                         <div class="col-md-4">
                             <label class="form-label">Kategori</label>
                             <select id="CategoryId" required><option value="">Seçiniz...</option></select>
@@ -92,281 +94,432 @@
                             <button type="button" class="btn btn-success d-none" id="btnUpdate"><i class="bi bi-arrow-repeat"></i> Güncelle</button>
                             <button type="button" class="btn btn-outline-danger d-none" id="btnDelete"><i class="bi bi-trash"></i> Sil</button>
                         </div>
-                    </div>
-
+                    </div><!-- /row -->
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Confirm Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Onay</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+      </div>
+      <div class="modal-body" id="confirmModalMessage">Silmek istediğinize emin misiniz?</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Vazgeç</button>
+        <button type="button" class="btn btn-primary" id="confirmModalOk">Evet</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container (sağ üst) -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1080;"></div>
+
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
-    <script>
-        // ---------- Helpers ----------
-        function g(o, ...keys) { for (const k of keys) { if (o && o[k] != null) return o[k]; } return ""; }
-        function normalizeDateForInput(v) {
-            if (!v) return "";
-            if (typeof v === "string") return v.length >= 10 ? v.substring(0, 10) : v;
-            if (v instanceof Date) { const y = v.getFullYear(), m = String(v.getMonth() + 1).padStart(2, '0'), d = String(v.getDate()).padStart(2, '0'); return `${y}-${m}-${d}`; }
-            return "";
-        }
-        function refreshCount() { document.getElementById('listCount').innerText = document.querySelectorAll('#productList .product-item').length; }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 
-        // ---------- State / Refs ----------
-        const idBadge = document.getElementById('selectedIdBadge');
-        const formTitle = document.getElementById('formTitle');
-        const formSub = document.getElementById('formSub');
-        const btnSave = document.getElementById('btnSave');
-        const btnUpdate = document.getElementById('btnUpdate');
-        const btnDelete = document.getElementById('btnDelete');
-        const ts = {}; // Tom Select instances
+<script>
+/* ---------- Helpers ---------- */
+function g(o, ...keys){ for(const k of keys){ if(o && o[k]!=null) return o[k]; } return ""; }
+function normalizeDateForInput(v){
+  if(!v) return "";
+  if(typeof v==="string") return v.length>=10 ? v.substring(0,10) : v;
+  if(v instanceof Date){ const y=v.getFullYear(), m=String(v.getMonth()+1).padStart(2,'0'), d=String(v.getDate()).padStart(2,'0'); return `${y}-${m}-${d}`; }
+  return "";
+}
+function refreshCount(){ document.getElementById('listCount').innerText = document.querySelectorAll('#productList .product-item').length; }
 
-        // ---------- Tom Select ----------
-        function initTom(selectId, items) {
-            const el = document.getElementById(selectId);
-            if (!el) return;
-            el.innerHTML = `<option value="">Seçiniz...</option>`;
-            ts[selectId] = new TomSelect(el, {
-                valueField: 'id',
-                labelField: 'name',
-                searchField: ['name', 'code'],   // ad + kod’da arama
-                options: items || [],
-                items: [],
-                placeholder: 'Seçiniz...',
-                allowEmptyOption: true,
-                create: false,
-                shouldSort: false,
-                render: {
-                    option: (d, esc) => `<div${d.code ? ` title="${esc(d.code)}"` : ""}>${esc(d.name)}</div>`,
-                    item: (d, esc) => `<div>${esc(d.name)}</div>`
-                }
-            });
-        }
+/* ---------- Toast & Confirm ---------- */
+function showToast(type, message, title = "") {
+  const container = document.querySelector('.toast-container');
+  const el = document.createElement('div');
 
-        // ---------- Form I/O ----------
-        function setForm(obj) {
-            const map = {
-                Name: ['name', 'Name'],
-                CreateDate: ['createDate', 'CreateDate'],
-                CategoryId: ['categoryId', 'CategoryId'],
-                BrandId: ['brandId', 'BrandId'],
-                FabricTypeId: ['fabricTypeId', 'FabricTypeId'],
-                ModelId: ['modelId', 'ModelId'],
-                ColorId: ['colorId', 'ColorId']
-            };
-            for (const [k, keys] of Object.entries(map)) {
-                let val = g(obj, ...keys);
-                if (k === 'CreateDate') val = normalizeDateForInput(val);
-                if (k in ts) { ts[k].setValue(val ? String(val) : ""); ts[k].wrapper.classList.remove('is-invalid'); }
-                else { const el = document.getElementById(k); if (el) { el.value = val ?? ""; el.classList.remove('is-invalid'); } }
-            }
-        }
-        function getForm() {
-            const toInt = v => v === "" ? 0 : parseInt(v, 10);
-            const getSel = id => ts[id] ? (ts[id].getValue() || "") : (document.getElementById(id)?.value || "");
-            return {
-                Name: (document.getElementById('Name')?.value ?? "").trim(),
-                CreateDate: document.getElementById('CreateDate')?.value ?? "",
-                CategoryId: toInt(getSel('CategoryId')),
-                BrandId: toInt(getSel('BrandId')),
-                FabricTypeId: toInt(getSel('FabricTypeId')),
-                ModelId: toInt(getSel('ModelId')),
-                ColorId: toInt(getSel('ColorId'))
-            };
-        }
-        function setSelected(id) {
-            const hasSel = !!id && id > 0;
-            if (hasSel) {
-                idBadge.style.display = 'inline-block'; idBadge.textContent = `ID:${id}`;
-                formTitle.textContent = 'Ürün Güncelle'; formSub.textContent = 'Bilgileri düzenleyin ve Güncelle/Sil yapın.';
-                btnSave.classList.add('d-none'); btnUpdate.classList.remove('d-none'); btnDelete.classList.remove('d-none');
-            } else {
-                idBadge.style.display = 'none'; idBadge.textContent = '';
-                formTitle.textContent = 'Yeni Ürün'; formSub.textContent = 'Seçim yokken Kaydet → yeni ürün oluşturur.';
-                btnSave.classList.remove('d-none'); btnUpdate.classList.add('d-none'); btnDelete.classList.add('d-none');
-            }
-        }
-        function getSelectedId() { const m = (idBadge.textContent || "").match(/ID:\s*(\d+)/i); return m ? parseInt(m[1]) : 0; }
-        function clearForm() {
-            setForm({}); setSelected(0);
-            document.querySelectorAll('.product-item.active').forEach(x => x.classList.remove('active'));
-            const d = new Date(), y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
-            document.getElementById('CreateDate').value = `${y}-${m}-${day}`;
-        }
+  const bg =
+    type === 'success' ? 'text-bg-success' :
+    type === 'error'   ? 'text-bg-danger'  :
+                         'text-bg-secondary';
 
-        // ---------- Liste ----------
-        function renderList(items) {
-            const host = document.getElementById('productList');
-            host.innerHTML = "";
-            items.forEach(p => {
-                const id = g(p, 'id', 'Id');
-                const name = g(p, 'name', 'Name') || '(Adsız)';
-                const code = g(p, 'code', 'Code');
-                const color = g(p, 'colorName', 'ColorName');
+  el.className = `toast align-items-center ${bg} border-0`;
+  el.setAttribute('role','alert');
+  el.setAttribute('aria-live','assertive');
+  el.setAttribute('aria-atomic','true');
 
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'list-group-item list-group-item-action d-flex align-items-start gap-3 product-item';
-                const letter = (name || '?').charAt(0).toUpperCase();
-                btn.innerHTML = `
-                <div class="avatar rounded-circle bg-primary text-white d-inline-flex justify-content-center align-items-center" style="width:38px;height:38px;">${letter}</div>
-                <div class="flex-fill text-start">
-                  <div class="fw-semibold">${code ?? ''} — ${name}</div>
-                  <div class="small text-muted">${color ? `<span>${color}</span>` : ''}</div>
-                </div>
-                <div><span class="badge id-badge">ID:${id}</span></div>
-              `;
-                btn.addEventListener('click', () => {
-                    const was = btn.classList.contains('active');
-                    document.querySelectorAll('.product-item.active').forEach(x => x.classList.remove('active'));
-                    if (was) { clearForm(); setSelected(0); return; }
-                    btn.classList.add('active'); setForm(p); setSelected(id);
-                });
-                host.appendChild(btn);
-            });
-            refreshCount();
-        }
+  el.innerHTML = `
+    <div class="d-flex">
+      <div class="toast-body">
+        ${title ? `<strong class="me-2">${title}</strong>` : ""}${message}
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Kapat"></button>
+    </div>`;
 
-        // ---------- API ----------
-        async function apiList(q = "") {
-            const r = await fetch(`/Product/Search?q=${encodeURIComponent(q)}`); if (!r.ok) throw new Error('Liste alınamadı'); return r.json();
-        }
-        async function apiCreate(model) {
-            const r = await fetch('/Product/Create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(model) });
-            if (r.status === 400) { const t = await r.text().catch(() => ''); alert(t || 'Zorunlu alanları kontrol edin.'); return { ok: false }; }
-            if (r.status === 409) { const d = await r.json().catch(() => ({})); alert(d?.message || 'Aynı kodda kayıt var.'); return { ok: false }; }
-            if (!r.ok) { alert('Kayıt başarısız'); return { ok: false }; }
-            return { ok: true, data: await r.json() };
-        }
-        async function apiUpdate(id, model) {
-            const r = await fetch('/Product/Update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...model, Id: id }) });
-            if (r.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
-            if (r.status === 400) { const t = await r.text().catch(() => ''); alert(t || 'Zorunlu alanları kontrol edin.'); return { ok: false }; }
-            if (r.status === 409) { const d = await r.json().catch(() => ({})); alert(d?.message || 'Çakışma'); return { ok: false }; }
-            if (!r.ok) { alert('Güncelleme başarısız'); return { ok: false }; }
-            return { ok: true, data: await r.json() };
-        }
-        async function apiDelete(id) {
-            const r = await fetch('/Product/Delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Id: id }) });
-            if (r.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
-            if (r.status === 400) { alert('Geçersiz istek (id).'); return { ok: false }; }
-            if (r.status === 409) { const d = await r.json().catch(() => ({})); alert(d?.message || 'Silinemedi (ilişkili kayıt).'); return { ok: false }; }
-            if (!r.ok) { alert('Silme başarısız'); return { ok: false }; }
-            return { ok: true, data: await r.json() };
-        }
+  container.appendChild(el);
+  const toast = new bootstrap.Toast(el, { delay: (type === 'error' ? 4000 : 3000) });
+  toast.show();
+  el.addEventListener('hidden.bs.toast', () => el.remove());
+}
 
-        // ---------- Validasyon ----------
-        function validateRequired() {
-            let ok = true;
-            const ids = ['Name', 'CreateDate', 'CategoryId', 'BrandId', 'FabricTypeId', 'ModelId', 'ColorId'];
-            ids.forEach(id => {
-                if (id === 'Name' || id === 'CreateDate') {
-                    const el = document.getElementById(id);
-                    const bad = ((el?.value || '').trim() === '');
-                    el?.classList.toggle('is-invalid', bad);
-                    if (bad) ok = false;
-                } else {
-                    const inst = ts[id];
-                    const bad = !inst || !inst.getValue();
-                    if (inst) { inst.wrapper.classList.toggle('is-invalid', bad); }
-                    if (bad) ok = false;
-                }
-            });
-            return ok;
-        }
+function showConfirm(message, title = 'Onay') {
+  return new Promise((resolve) => {
+    const modalEl   = document.getElementById('confirmModal');
+    const titleEl   = modalEl.querySelector('.modal-title');
+    const msgEl     = document.getElementById('confirmModalMessage');
+    const okBtn     = document.getElementById('confirmModalOk');
+    const bsModal   = bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop:'static', keyboard:false });
 
-        // ---------- Lookups & init ----------
-        async function loadLookups() {
-            const r = await fetch('/Product/Lookups'); if (!r.ok) return;
-            const d = await r.json();
-            initTom('CategoryId', d.categories);
-            initTom('BrandId', d.brands);
-            initTom('FabricTypeId', d.fabrics);
-            initTom('ModelId', d.models);
-            initTom('ColorId', d.colors);
-        }
+    titleEl.textContent = title;
+    msgEl.textContent   = message;
 
-        // ---------- Startup & events ----------
-        (async () => {
-            await loadLookups();
-            const items = await apiList(""); renderList(items); setSelected(0);
-            const now = new Date(), y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, '0'), d = String(now.getDate()).padStart(2, '0');
-            document.getElementById('CreateDate').value = `${y}-${m}-${d}`;
-        })();
+    const onOk   = () => { cleanup(); bsModal.hide(); resolve(true); };
+    const onHide = () => { cleanup(); resolve(false); };
+    const cleanup = () => {
+      okBtn.removeEventListener('click', onOk);
+      modalEl.removeEventListener('hidden.bs.modal', onHide);
+    };
 
-        document.getElementById('searchBox')?.addEventListener('input', async function () {
-            const items = await apiList(this.value || ""); renderList(items); setSelected(0);
-        });
+    okBtn.addEventListener('click', onOk, { once:true });
+    modalEl.addEventListener('hidden.bs.modal', onHide, { once:true });
 
-        btnSave?.addEventListener('click', async () => {
-            if (!validateRequired()) { alert('Zorunlu alanları doldurun.'); return; }
-            const body = getForm(); const r = await apiCreate(body); if (!r.ok) return;
-            alert('Ürün oluşturuldu.'); const items = await apiList(document.getElementById('searchBox')?.value || ""); renderList(items); clearForm(); setSelected(0);
-        });
+    bsModal.show();
+  });
+}
 
-        btnUpdate?.addEventListener('click', async () => {
-            const id = getSelectedId(); if (!id) { alert('Seçim yok'); return; }
-            if (!validateRequired()) { alert('Zorunlu alanları doldurun.'); return; }
-            const body = getForm(); const r = await apiUpdate(id, body); if (!r.ok) return;
-            alert('Güncellendi.'); const items = await apiList(document.getElementById('searchBox')?.value || ""); renderList(items); clearForm(); setSelected(0);
-        });
+/* ---------- Buton görünürlüğü tek yerden ---------- */
+function toggleButtons(hasSelection){
+  document.getElementById('btnSave')  ?.classList.toggle('d-none', !!hasSelection);
+  document.getElementById('btnUpdate')?.classList.toggle('d-none', !hasSelection);
+  document.getElementById('btnDelete')?.classList.toggle('d-none', !hasSelection);
+}
 
-        btnDelete?.addEventListener('click', async () => {
-            const id = getSelectedId(); if (!id) { alert('Seçim yok'); return; }
-            if (!confirm('Silmek istediğinize emin misiniz?')) return;
-            const r = await apiDelete(id); if (!r.ok) return;
-            const active = document.querySelector('#productList .product-item.active'); if (active) { active.remove(); refreshCount(); }
-            clearForm(); setSelected(0);
-        });
-    </script>
+/* ---------- Form state ---------- */
+const idBadge = document.getElementById('selectedIdBadge');
+const formTitle = document.getElementById('formTitle');
+const btnSave = document.getElementById('btnSave');
+const btnUpdate = document.getElementById('btnUpdate');
+const btnDelete = document.getElementById('btnDelete');
+const ts = {}; // Tom Select instances
+const lookups = { categories:[], brands:[], fabrics:[], models:[], colors:[] };
 
-    <style>
-        /* Seçili satır */
-        .product-item.active {
-            background-color: #e7f1ff !important;
-            border-color: #cfe2ff !important;
-        }
+function initTom(selectId, items){
+  const el = document.getElementById(selectId);
+  if(!el) return;
+  el.innerHTML = `<option value="">Seçiniz...</option>`;
+  if(ts[selectId]){ ts[selectId].destroy(); ts[selectId]=null; }
+  ts[selectId] = new TomSelect(el,{
+    valueField:'id',
+    labelField:'name',
+    searchField:['name','code'],
+    options: items || [],
+    items: [],
+    placeholder:'Seçiniz...',
+    allowEmptyOption:true,
+    create:false,
+    shouldSort:false,
+    render:{
+      option:(d,esc)=>`<div${d.code?` title="${esc(d.code)}"`:""}>${esc(d.name)}</div>`,
+      item:(d,esc)=>`<div>${esc(d.name)}</div>`
+    }
+  });
 
-        .id-badge {
-            color: #000 !important;
-            background-color: #f8f9fa !important;
-            border: 1px solid #dee2e6 !important;
-            font-weight: 500;
-        }
+  el.addEventListener('change', updateCodePreviewIfNeeded);
+}
 
-        .avatar {
-            font-weight: 600;
-        }
+/* Kod önizleme */
+function buildCodePreview(){
+  const getCode = (arr, id) => {
+    id = parseInt(id || '0', 10);
+    if (!id) return "";
+    const f = (arr || []).find(x => x.id === id);
+    return (f && f.code) ? f.code.trim() : "";
+  };
 
-        /* Responsive liste yüksekliği */
-        @@media (max-width: 991.98px) {
-            #productList {
-                max-height: 40vh;
-            }
-        }
+  const c1 = getCode(lookups.categories, ts['CategoryId']?.getValue());
+  const c2 = getCode(lookups.brands,     ts['BrandId']?.getValue());
+  const c3 = getCode(lookups.fabrics,    ts['FabricTypeId']?.getValue());
+  const c4 = getCode(lookups.models,     ts['ModelId']?.getValue());
+  const c5 = getCode(lookups.colors,     ts['ColorId']?.getValue());
 
-        /* invalid alan */
-        .is-invalid {
-            border-color: #dc3545 !important;
-        }
+  let parts = [c1, c2, c3, c4].filter(x => x);
+  let left = parts.join('');
+  let colorPart = c5 ? `-${c5}` : "";
 
-        /* Tom Select → TEK BORDER görünümü */
-        .ts-wrapper {
-            border: 0 !important;
-            box-shadow: none !important;
-        }
+  if(left || colorPart){
+    return `${left}${colorPart}-**`;
+  }
+  return "";
+}
 
-            .ts-wrapper .ts-control {
-                border: 1px solid var(--bs-border-color) !important;
-                border-radius: .375rem !important; /* form-control ile aynı radius */
-                min-height: calc(2.5rem + 2px); /* form-control yüksekliği */
-                padding: .375rem .75rem;
-                box-shadow: none !important;
-            }
+function updateCodePreviewIfNeeded(){
+  const hasSelection = getSelectedId() > 0;
+  if (hasSelection) return;
+  const preview = buildCodePreview();
+  document.getElementById('Code').value = preview;
+}
 
-            .ts-wrapper.is-invalid .ts-control {
-                border-color: #dc3545 !important;
-            }
-    </style>
+function setForm(obj){
+  const map={
+    Name:['name','Name'],
+    CreateDate:['createDate','CreateDate'],
+    CategoryId:['categoryId','CategoryId'],
+    BrandId:['brandId','BrandId'],
+    FabricTypeId:['fabricTypeId','FabricTypeId'],
+    ModelId:['modelId','ModelId'],
+    ColorId:['colorId','ColorId'],
+    Code:['code','Code']
+  };
+  for(const [k,keys] of Object.entries(map)){
+    let val=g(obj,...keys);
+    if(k==='CreateDate') val=normalizeDateForInput(val);
+
+    if(k==='Code'){
+      if(val){ document.getElementById('Code').value = val; }
+      else   { updateCodePreviewIfNeeded(); }
+      continue;
+    }
+
+    if(ts[k]){ ts[k].setValue(val?String(val):""); ts[k].wrapper.classList.remove('is-invalid'); }
+    else { const el=document.getElementById(k); if(el){ el.value=val??""; el.classList.remove('is-invalid'); } }
+  }
+
+  if(getSelectedId() === 0){
+    updateCodePreviewIfNeeded();
+  }
+}
+
+function getForm(){
+  const toInt=v=>v===""?0:parseInt(v,10);
+  const getSel=id=> ts[id] ? (ts[id].getValue() || "") : (document.getElementById(id)?.value || "");
+  return {
+    Name:(document.getElementById('Name')?.value ?? "").trim(),
+    CreateDate: document.getElementById('CreateDate')?.value ?? "",
+    CategoryId: toInt(getSel('CategoryId')),
+    BrandId: toInt(getSel('BrandId')),
+    FabricTypeId: toInt(getSel('FabricTypeId')),
+    ModelId: toInt(getSel('ModelId')),
+    ColorId: toInt(getSel('ColorId'))
+    // Code gönderilmez: sunucu oluşturur/korur
+  };
+}
+
+function setSelected(id){
+  const hasSel = !!id && id>0;
+  if(hasSel){
+    idBadge.style.display='inline-block'; idBadge.textContent=`ID:${id}`;
+    formTitle.textContent='Ürün Güncelle';
+  }else{
+    idBadge.style.display='none'; idBadge.textContent='';
+    formTitle.textContent='Yeni Ürün';
+  }
+  toggleButtons(hasSel);
+  updateCodePreviewIfNeeded();
+}
+function getSelectedId(){
+  const m=(idBadge.textContent||"").match(/ID:\s*(\d+)/i);
+  return m?parseInt(m[1],10):0;
+}
+function clearForm(){
+  setForm({});
+  setSelected(0);
+  document.querySelectorAll('.product-item.active').forEach(x=>x.classList.remove('active'));
+  const d=new Date(), y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  document.getElementById('CreateDate').value=`${y}-${m}-${day}`;
+  updateCodePreviewIfNeeded();
+}
+
+/* ---------- Liste ---------- */
+function renderList(items){
+  const host=document.getElementById('productList');
+  host.innerHTML="";
+  items.forEach(p=>{
+    const id=g(p,'id','Id');
+    const name=g(p,'name','Name') || '(Adsız)';
+    const code=g(p,'code','Code');
+    const color=g(p,'colorName','ColorName');
+
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='list-group-item list-group-item-action d-flex align-items-start gap-3 product-item';
+    const letter=(name||'?').charAt(0).toUpperCase();
+    btn.innerHTML=`
+      <div class="avatar rounded-circle bg-primary text-white d-inline-flex justify-content-center align-items-center" style="width:38px;height:38px;">${letter}</div>
+      <div class="flex-fill text-start">
+        <div class="fw-semibold">${(code??'')} — ${name}</div>
+        <div class="small text-muted">${color?`<span>${color}</span>`:''}</div>
+      </div>
+      <div><span class="badge id-badge">ID:${id}</span></div>`;
+
+    btn.addEventListener('click',()=>{
+      const was=btn.classList.contains('active');
+      document.querySelectorAll('.product-item.active').forEach(x=>x.classList.remove('active'));
+      if(was){ clearForm(); setSelected(0); return; }
+      btn.classList.add('active'); setForm(p); setSelected(id);
+      const codeVal = g(p,'code','Code');
+      if(codeVal) document.getElementById('Code').value = codeVal;
+    });
+
+    host.appendChild(btn);
+  });
+  refreshCount();
+}
+
+/* ---------- API ---------- */
+async function apiList(q=""){
+  const r=await fetch(`/Product/Search?q=${encodeURIComponent(q)}`);
+  if(!r.ok){ showToast('error','Liste alınamadı'); return []; }
+  return r.json();
+}
+async function apiCreate(model){
+  const r=await fetch('/Product/Create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(model)});
+  if(r.status===400){ const t=await r.text().catch(()=> ''); showToast('error', t || 'Zorunlu alanları kontrol edin.'); return {ok:false}; }
+  if(r.status===409){ const d=await r.json().catch(()=>({})); showToast('error', d?.message || 'Aynı kodda kayıt var.'); return {ok:false}; }
+  if(!r.ok){ showToast('error','Kayıt başarısız'); return {ok:false}; }
+  return {ok:true, data: await r.json()};
+}
+async function apiUpdate(id,model){
+  const r=await fetch('/Product/Update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...model, Id:id})});
+  if(r.status===404){ showToast('error','Kayıt bulunamadı.'); return {ok:false}; }
+  if(r.status===400){ const t=await r.text().catch(()=> ''); showToast('error', t || 'Zorunlu alanları kontrol edin.'); return {ok:false}; }
+  if(!r.ok){ showToast('error','Güncelleme başarısız'); return {ok:false}; }
+  return {ok:true, data: await r.json()};
+}
+async function apiDelete(id){
+  const r=await fetch('/Product/Delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({Id:id})});
+  if(r.status===404){ showToast('error','Kayıt bulunamadı.'); return {ok:false}; }
+  if(r.status===400){ showToast('error','Geçersiz istek (id).'); return {ok:false}; }
+  if(r.status===409){ const d=await r.json().catch(()=>({})); showToast('error', d?.message || 'Silinemedi (ilişkili kayıt).'); return {ok:false}; }
+  if(!r.ok){ showToast('error','Silme başarısız'); return {ok:false}; }
+  return {ok:true, data: await r.json()};
+}
+
+/* ---------- Validasyon ---------- */
+function validateRequired(){
+  let ok=true;
+  const ids=['Name','CreateDate','CategoryId','BrandId','FabricTypeId','ModelId','ColorId'];
+  ids.forEach(id=>{
+    if(id==='Name' || id==='CreateDate'){
+      const el=document.getElementById(id);
+      const bad=((el?.value||'').trim()==='');
+      el?.classList.toggle('is-invalid',bad);
+      if(bad) ok=false;
+    }else{
+      const inst=ts[id];
+      const bad=!inst || !inst.getValue();
+      if(inst){ inst.wrapper.classList.toggle('is-invalid',bad); }
+      if(bad) ok=false;
+    }
+  });
+  return ok;
+}
+
+/* ---------- Lookups & init ---------- */
+async function loadLookups(){
+  const r=await fetch('/Product/Lookups');
+  if(!r.ok) return;
+  const d=await r.json();
+  lookups.categories = d.categories || [];
+  lookups.brands     = d.brands     || [];
+  lookups.fabrics    = d.fabrics    || [];
+  lookups.models     = d.models     || [];
+  lookups.colors     = d.colors     || [];
+
+  initTom('CategoryId',  lookups.categories);
+  initTom('BrandId',     lookups.brands);
+  initTom('FabricTypeId',lookups.fabrics);
+  initTom('ModelId',     lookups.models);
+  initTom('ColorId',     lookups.colors);
+}
+
+/* ---------- Startup & events ---------- */
+(async ()=>{
+  await loadLookups();
+  const items = await apiList("");
+  renderList(items);
+  setSelected(0);
+
+  const now=new Date(), y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0');
+  document.getElementById('CreateDate').value=`${y}-${m}-${d}`;
+  updateCodePreviewIfNeeded();
+})();
+
+document.getElementById('searchBox')?.addEventListener('input', async function(){
+  const items=await apiList(this.value || "");
+  renderList(items);
+  setSelected(0);
+});
+
+btnSave?.addEventListener('click', async ()=>{
+  if(!validateRequired()){ showToast('error','Zorunlu alanları doldurun.'); return; }
+  const body=getForm();
+  const r=await apiCreate(body); if(!r.ok) return;
+  showToast('success','Ürün oluşturuldu.');
+  const items=await apiList(document.getElementById('searchBox')?.value || "");
+  renderList(items);
+  clearForm();
+  setSelected(0);
+});
+
+btnUpdate?.addEventListener('click', async ()=>{
+  const id=getSelectedId(); if(!id){ showToast('error','Seçim yok.'); return; }
+  if(!validateRequired()){ showToast('error','Zorunlu alanları doldurun.'); return; }
+  const body=getForm();
+  const r=await apiUpdate(id, body); if(!r.ok) return;
+  showToast('success','Güncellendi.');
+  const items=await apiList(document.getElementById('searchBox')?.value || "");
+  renderList(items);
+  clearForm();
+  setSelected(0);
+});
+
+btnDelete?.addEventListener('click', async ()=>{
+  const id=getSelectedId(); if(!id){ showToast('error','Seçim yok.'); return; }
+  const ok = await showConfirm('Silmek istediğinize emin misiniz?', 'Silme Onayı');
+  if(!ok) return;
+  const r=await apiDelete(id); if(!r.ok) return;
+  const active=document.querySelector('#productList .product-item.active');
+  if(active){ active.remove(); refreshCount(); }
+  clearForm();
+  setSelected(0);
+  showToast('success','Kayıt silindi.');
+});
+</script>
+
+<style>
+/* Seçili satır */
+.product-item.active{
+  background-color:#e7f1ff !important;
+  border-color:#cfe2ff !important;
+}
+.id-badge{
+  color:#000 !important;
+  background-color:#f8f9fa !important;
+  border:1px solid #dee2e6 !important;
+  font-weight:500;
+}
+.avatar{ font-weight:600; }
+
+/* Responsive liste yüksekliği */
+@@media (max-width: 991.98px){
+  #productList{ max-height:40vh; }
+}
+
+/* invalid alan */
+.is-invalid{ border-color:#dc3545 !important; }
+
+/* Tom Select → tek border */
+.ts-wrapper{ border:0 !important; box-shadow:none !important; }
+.ts-wrapper .ts-control{
+  border:1px solid var(--bs-border-color) !important;
+  border-radius:.375rem !important;
+  min-height:calc(2.5rem + 2px);
+  padding:.375rem .75rem;
+  box-shadow:none !important;
+}
+.ts-wrapper.is-invalid .ts-control{ border-color:#dc3545 !important; }
+</style>
 }

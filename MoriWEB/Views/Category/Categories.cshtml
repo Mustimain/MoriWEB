@@ -1,282 +1,373 @@
 ﻿@using MoriWEB.Models
 @{
     ViewData["Title"] = "Lookup Yönetimi";
+
     var types = Enum.GetValues(typeof(LookupType)).Cast<LookupType>()
-        .Select(t => new { Value = (int)t, Text = t switch {
-            LookupType.Brand => "Marka",
-            LookupType.Category => "Kategori",
-            LookupType.Color => "Renk",
-            LookupType.FabricType => "Kumaş Türü",
-            LookupType.Model => "Model",
-            LookupType.Company => "Firma",
-            LookupType.PaymentType => "Ödeme Türü",
-            LookupType.CashTransactionType => "Kasa İşlem Türü",
-            _ => t.ToString()
-        }});
+        .Select(t => new
+        {
+            Value = (int)t,
+            Text = t switch
+            {
+                LookupType.Brand => "Marka",
+                LookupType.Category => "Kategori",
+                LookupType.Color => "Renk",
+                LookupType.FabricType => "Kumaş Türü",
+                LookupType.Model => "Model",
+                LookupType.Company => "Firma",
+                LookupType.PaymentType => "Ödeme Türü",
+                LookupType.CashTransactionType => "Kasa İşlem Türü",
+                _ => t.ToString()
+            }
+        });
 }
+
 <div class="container-fluid py-3">
-  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-    <div>
-      <h3 class="mb-0">Lookup Yönetimi</h3>
-      <small class="text-muted">Sol üstten tür seç → sol listede kayıtlar. Seçmeden sağdan Kaydet; seçiliyse Güncelle/Sil.</small>
-    </div>
-  </div>
-
-  <div class="row g-3">
-    <!-- SOL -->
-    <div class="col-12 col-lg-5">
-      <div class="card shadow-sm border-0 h-100">
-        <div class="card-header bg-white border-0">
-          <div class="row g-2 align-items-center">
-            <div class="col-12 col-md-6">
-              <label class="form-label mb-1">Tür</label>
-              <select id="typePicker" class="form-select">
-                @foreach (var t in types) { <option value="@t.Value">@t.Text</option> }
-              </select>
-            </div>
-            <div class="col-12 col-md-6">
-              <label class="form-label mb-1">Ara</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                <input id="searchBox" type="text" class="form-control" placeholder="Kod / Ad">
-              </div>
-            </div>
-          </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h3 class="mb-0">Lookup Yönetimi</h3>
         </div>
-        <div class="card-body pt-0">
-          <div id="listHost" class="list-group list-group-flush border rounded" style="max-height:65vh;overflow:auto;"></div>
-        </div>
-        <div class="card-footer bg-white border-0 d-flex justify-content-between">
-          <small class="text-muted">Toplam: <span id="countBadge">0</span></small>
-        </div>
-      </div>
     </div>
 
-    <!-- SAĞ -->
-    <div class="col-12 col-lg-7">
-      <div class="card shadow-sm border-0">
-        <div class="card-body p-4">
-          <div class="d-flex align-items-center justify-content-between mb-3">
-            <div class="d-flex align-items-center gap-3">
-              <div class="rounded-circle bg-primary bg-opacity-10 p-2">
-                <i class="bi bi-tags fs-5 text-primary"></i>
-              </div>
-              <div>
-                <h5 class="mb-0" id="formTitle">Yeni Kayıt</h5>
-                <small class="text-muted" id="formSub">Kod ve Ad girip Kaydet’e basın.</small>
-              </div>
-            </div>
-            <span class="badge text-bg-light border" id="selectedIdBadge" style="display:none;">ID:</span>
-          </div>
+    <div class="row g-3">
+        <!-- SOL: Liste/Kriter -->
+        <div class="col-12 col-lg-5">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white border-0">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label mb-1">Tür</label>
+                            <select id="typePicker" class="form-select">
+                                @foreach (var t in types)
+                                {
+                                    <option value="@t.Value">@t.Text</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label mb-1">Ara</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input id="searchBox" type="text" class="form-control" placeholder="Kod / Ad">
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Tür</label>
-              <input id="TypeRead" class="form-control" readonly>
-              <input id="TypeValue" type="hidden">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Kod</label>
-              <input id="Code" class="form-control" placeholder="Örn: MRK-001">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Ad</label>
-              <input id="Name" class="form-control" placeholder="Ad">
-            </div>
+                <div class="card-body pt-0">
+                    <div id="listHost" class="list-group list-group-flush border rounded" style="max-height:65vh;overflow:auto;"></div>
+                </div>
 
-            <!-- Sadece Kasa İşlem Türü için -->
-            <div class="col-md-4" id="signPickerRow" style="display:none;">
-              <label class="form-label">İşlem</label>
-              <select id="TransactionSign" class="form-select">
-                <option value="0">Stok Girişi (−)</option>
-                <option value="1">Stok Çıkışı (+)</option>
-              </select>
-              <div class="form-text">Boş/Geçersiz gelirse 0 (Stok Girişi) kabul edilir.</div>
+                <div class="card-footer bg-white border-0 d-flex justify-content-between">
+                    <small class="text-muted">Toplam: <span id="countBadge">0</span></small>
+                </div>
             </div>
-
-            <div class="col-12 d-flex flex-wrap gap-2 justify-content-end mt-2">
-              <button type="button" class="btn btn-primary" id="btnSave">
-                <i class="bi bi-save2"></i> Kaydet
-              </button>
-              <button type="button" class="btn btn-success d-none" id="btnUpdate">
-                <i class="bi bi-arrow-repeat"></i> Güncelle
-              </button>
-              <button type="button" class="btn btn-outline-danger d-none" id="btnDelete">
-                <i class="bi bi-trash"></i> Sil
-              </button>
-            </div>
-          </div><!-- /row -->
         </div>
-      </div>
+
+        <!-- SAĞ: Form -->
+        <div class="col-12 col-lg-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-primary bg-opacity-10 p-2">
+                                <i class="bi bi-tags fs-5 text-primary"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0" id="formTitle">Yeni Kayıt</h5>
+                            </div>
+                        </div>
+                        <span class="badge text-bg-light border" id="selectedIdBadge" style="display:none;">ID:</span>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Tür</label>
+                            <input id="TypeRead" class="form-control" readonly>
+                            <input id="TypeValue" type="hidden">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Kod</label>
+                            <input id="Code" class="form-control" placeholder="Örn: MRK-001">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Ad</label>
+                            <input id="Name" class="form-control" placeholder="Ad">
+                        </div>
+
+                        <!-- Sadece Kasa İşlem Türü için -->
+                        <div class="col-md-4" id="signPickerRow" style="display:none;">
+                            <label class="form-label">İşlem</label>
+                            <select id="TransactionSign" class="form-select">
+                                <option value="0">Stok Girişi (−)</option>
+                                <option value="1">Stok Çıkışı (+)</option>
+                            </select>
+                            <div class="form-text">Boş/Geçersiz gelirse 0 (Stok Girişi) kabul edilir.</div>
+                        </div>
+
+                        <div class="col-12 d-flex flex-wrap gap-2 justify-content-end mt-2">
+                            <button type="button" class="btn btn-primary" id="btnSave">
+                                <i class="bi bi-save2"></i> Kaydet
+                            </button>
+                            <button type="button" class="btn btn-success d-none" id="btnUpdate">
+                                <i class="bi bi-arrow-repeat"></i> Güncelle
+                            </button>
+                            <button type="button" class="btn btn-outline-danger d-none" id="btnDelete">
+                                <i class="bi bi-trash"></i> Sil
+                            </button>
+                        </div>
+                    </div><!-- /row -->
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
-@section Scripts{
-<script>
-const typeMap=new Map([[0,'Marka'],[1,'Kategori'],[2,'Renk'],[3,'Kumaş Türü'],[4,'Model'],[5,'Firma'],[6,'Ödeme Türü'],[7,'Kasa İşlem Türü']]);
-const CASH_TYPE=7;
-const $=id=>document.getElementById(id);
-const codeInput=$('Code');
+@section Scripts {
+    <script>
+        // ---- yardımcılar
+        const CASH_TYPE = 7;
+        const $ = id => document.getElementById(id);
+        const codeInput = $('Code');
 
-function setSelected(id){
-  const has=!!id && id>0;
-  if(codeInput){ codeInput.readOnly=has; codeInput.classList.toggle('bg-light',has); codeInput.title=has?'Güncellemede Kod değiştirilemez':''; }
-  const b=$('selectedIdBadge');
-  if(has){
-    b.style.display='inline-block'; b.textContent=`ID:${id}`;
-    $('formTitle').textContent='Kayıt Güncelle';
-    $('formSub').textContent='Adı/İşlemi düzenleyip Güncelle/Sil yapın.';
-    $('btnSave').classList.add('d-none');
-    $('btnUpdate').classList.remove('d-none');
-    $('btnDelete').classList.remove('d-none');
-  }else{
-    b.style.display='none'; b.textContent='';
-    $('formTitle').textContent='Yeni Kayıt';
-    $('formSub').textContent='Kod ve Ad girip Kaydet’e basın.';
-    $('btnSave').classList.remove('d-none');
-    $('btnUpdate').classList.add('d-none');
-    $('btnDelete').classList.add('d-none');
-  }
-}
-function getSelectedId(){ const m=(($('selectedIdBadge').textContent)||"").match(/ID:\s*(\d+)/i); return m?parseInt(m[1]):0; }
-function clearForm(){
-  $('Code').value=''; $('Name').value='';
-  $('TransactionSign').value='0'; // default 0 = Stok Girişi (−)
-  if(codeInput){ codeInput.readOnly=false; codeInput.classList.remove('bg-light'); codeInput.title=''; }
-  setSelected(0);
-  document.querySelectorAll('.lookup-item.active').forEach(x=>x.classList.remove('active'));
-}
-function setTypeOnForm(typeVal){
-  const val=parseInt(typeVal);
-  $('TypeValue').value=val;
-  $('TypeRead').value=typeMap.get(val)||'';
-  $('signPickerRow').style.display = (val===CASH_TYPE ? 'block' : 'none');
-}
+        function currentTypeValue() {
+            return parseInt(($('typePicker')?.value ?? "0"), 10);
+        }
+        function currentTypeText() {
+            const sel = $('typePicker');
+            return sel?.options?.[sel.selectedIndex]?.text ?? '';
+        }
+        function toggleButtons(hasSelection) {
+            $('btnSave')?.classList.toggle('d-none', !!hasSelection);
+            $('btnUpdate')?.classList.toggle('d-none', !hasSelection);
+            $('btnDelete')?.classList.toggle('d-none', !hasSelection);
+        }
+        function setSelected(id) {
+            const has = !!id && id > 0;
 
-function signBadge(sign){
-  return Number(sign)===1
-    ? '<span class="badge text-bg-danger ms-2">Stok Çıkışı (+)</span>'
-    : '<span class="badge text-bg-success ms-2">Stok Girişi (−)</span>';
-}
+            if (codeInput) {
+                codeInput.readOnly = has;
+                codeInput.classList.toggle('bg-light', has);
+                codeInput.title = has ? 'Güncellemede Kod değiştirilemez' : '';
+            }
 
-function renderList(items){
-  const host=$('listHost'); host.innerHTML='';
-  items.forEach(x=>{
-    const id=x.id||x.Id||0, code=x.code||x.Code||'', name=x.name||x.Name||'', sign=(x.transactionSign??null);
-    const btn=document.createElement('button'); btn.type='button'; btn.className='list-group-item list-group-item-action d-flex align-items-start gap-3 lookup-item';
-    const letter=(name||'?').toString().charAt(0).toUpperCase();
-    btn.innerHTML=`<div class="avatar rounded-circle bg-primary text-white d-inline-flex justify-content-center align-items-center" style="width:38px;height:38px;">${letter}</div>
-      <div class="flex-fill text-start">
-        <div class="fw-semibold">${name}${sign==null?'':signBadge(sign)}</div>
-        <div class="small text-muted">Kod: ${code}</div>
-      </div>
-      <div><span class="badge id-badge">ID:${id}</span></div>`;
-    btn.addEventListener('click',()=>{
-      const was=btn.classList.contains('active');
-      document.querySelectorAll('.lookup-item.active').forEach(x=>x.classList.remove('active'));
-      if(was){ clearForm(); setSelected(0); return; }
-      btn.classList.add('active');
-      $('Code').value=code; $('Name').value=name;
-      if (parseInt($('typePicker').value)===CASH_TYPE && (sign!=null))
-        $('TransactionSign').value=String(sign);
-      setSelected(id);
-    });
-    host.appendChild(btn);
-  });
-  $('countBadge').innerText=items.length;
-}
+            const b = $('selectedIdBadge');
+            if (has) {
+                b.style.display = 'inline-block';
+                b.textContent = `ID:${id}`;
+                $('formTitle').textContent = 'Kayıt Güncelle';
+            } else {
+                b.style.display = 'none';
+                b.textContent = '';
+                $('formTitle').textContent = 'Yeni Kayıt';
+            }
+            toggleButtons(has);
+        }
+        function getSelectedId() {
+            const m = (($('selectedIdBadge').textContent) || "").match(/ID:\s*(\d+)/i);
+            return m ? parseInt(m[1], 10) : 0;
+        }
+        function clearForm() {
+            $('Code').value = '';
+            $('Name').value = '';
+            $('TransactionSign').value = '0';
+            if (codeInput) {
+                codeInput.readOnly = false;
+                codeInput.classList.remove('bg-light');
+                codeInput.title = '';
+            }
+            setSelected(0);
+            document.querySelectorAll('.lookup-item.active').forEach(x => x.classList.remove('active'));
+        }
+        function setTypeOnForm(typeVal) {
+            const val = parseInt(typeVal, 10);
+            $('TypeValue').value = val;
+            $('TypeRead').value = currentTypeText();
+            $('signPickerRow').style.display = (val === CASH_TYPE ? 'block' : 'none');
+        }
 
-/* API */
-async function apiList(type,q=""){ const res=await fetch(`/Category/List?type=${type}&q=${encodeURIComponent(q)}`); if(!res.ok) throw new Error('Liste alınamadı'); return await res.json(); }
-async function apiCreate(model){
-  const res=await fetch('/Category/Create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(model)});
-  if(res.status===409){const d=await res.json().catch(()=>({})); alert(d?.message||'Bu kod mevcut.'); return {ok:false};}
-  if(res.status===400){const t=await res.text(); alert(t||'Kod ve Ad zorunlu'); return {ok:false};}
-  if(!res.ok){ alert('Kayıt başarısız'); return {ok:false}; }
-  return {ok:true};
-}
-async function apiUpdate(model){
-  const res=await fetch('/Category/Update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(model)});
-  if(res.status===404){ alert('Kayıt bulunamadı.'); return {ok:false}; }
-  if(res.status===409){ const d=await res.json().catch(()=>({})); alert(d?.message||'Kod çakışması.'); return {ok:false}; }
-  if(res.status===400){ const t=await res.text(); alert(t||'Geçersiz istek'); return {ok:false}; }
-  if(!res.ok){ alert('Güncelleme başarısız'); return {ok:false}; }
-  return {ok:true};
-}
-async function apiDelete(model){
-  const res=await fetch('/Category/Delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(model)});
-  if(res.status===404){ alert('Kayıt bulunamadı.'); return {ok:false}; }
-  if(res.status===409){ const d=await res.json().catch(()=>({})); alert(d?.message||'İlişkili olduğu için silinemedi.'); return {ok:false}; }
-  if(!res.ok){ alert('Silme başarısız'); return {ok:false}; }
-  return {ok:true};
-}
+        // ---- liste render
+        function signBadge(sign) {
+            return Number(sign) === 1
+                ? '<span class="badge text-bg-danger ms-2">Stok Çıkışı (+)</span>'
+                : '<span class="badge text-bg-success ms-2">Stok Girişi (−)</span>';
+        }
+        function renderList(items) {
+            const host = $('listHost'); host.innerHTML = '';
+            items.forEach(x => {
+                const id = x.id || x.Id || 0,
+                    code = x.code || x.Code || '',
+                    name = x.name || x.Name || '',
+                    sign = (x.transactionSign ?? null);
 
-/* Davranışlar */
-(async ()=>{
-  const picker=$('typePicker');
-  picker.value="1"; // Kategori varsayılan
-  setTypeOnForm(picker.value);
-  const list=await apiList(parseInt(picker.value), "");
-  renderList(list);
-})();
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'list-group-item list-group-item-action d-flex align-items-start gap-3 lookup-item';
+                const letter = (name || '?').toString().charAt(0).toUpperCase();
 
-$('typePicker')?.addEventListener('change', async function(){
-  setTypeOnForm(this.value); clearForm();
-  const list=await apiList(parseInt(this.value), $('searchBox').value||""); renderList(list);
-});
+                btn.innerHTML = `
+              <div class="avatar rounded-circle bg-primary text-white d-inline-flex justify-content-center align-items-center" style="width:38px;height:38px;">${letter}</div>
+              <div class="flex-fill text-start">
+                <div class="fw-semibold">${name}${sign == null ? '' : signBadge(sign)}</div>
+                <div class="small text-muted">Kod: ${code}</div>
+              </div>
+              <div><span class="badge id-badge">ID:${id}</span></div>`;
 
-$('searchBox')?.addEventListener('input', async function(){
-  const list=await apiList(parseInt($('typePicker').value), this.value||""); renderList(list);
-});
+                btn.addEventListener('click', () => {
+                    const was = btn.classList.contains('active');
+                    document.querySelectorAll('.lookup-item.active').forEach(x => x.classList.remove('active'));
+                    if (was) {
+                        clearForm();
+                        return;
+                    }
+                    btn.classList.add('active');
+                    $('Code').value = code;
+                    $('Name').value = name;
+                    if (currentTypeValue() === CASH_TYPE && (sign != null)) {
+                        $('TransactionSign').value = String(sign);
+                    }
+                    setSelected(id);
+                });
 
-$('btnSave')?.addEventListener('click', async ()=>{
-  const type=parseInt($('typePicker').value);
-  const code=($('Code').value||"").trim();
-  const name=($('Name').value||"").trim();
-  if(!code || !name){ alert('Kod ve Ad zorunlu'); return; }
+                host.appendChild(btn);
+            });
+            $('countBadge').innerText = items.length;
+        }
 
-  const payload = (type===CASH_TYPE)
-    ? { lookupType:type, code, name, transactionSign: parseInt($('TransactionSign').value||"0") }
-    : { lookupType:type, code, name };
+        // ---- API
+        async function apiList(type, q = "") {
+            const res = await fetch(`/Category/List?type=${type}&q=${encodeURIComponent(q)}`);
+            if (!res.ok) throw new Error('Liste alınamadı');
+            return await res.json();
+        }
+        async function apiCreate(model) {
+            const res = await fetch('/Category/Create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(model) });
+            if (res.status === 409) { const d = await res.json().catch(() => ({})); alert(d?.message || 'Bu kod mevcut.'); return { ok: false }; }
+            if (res.status === 400) { const t = await res.text(); alert(t || 'Kod ve Ad zorunlu'); return { ok: false }; }
+            if (!res.ok) { alert('Kayıt başarısız'); return { ok: false }; }
+            return { ok: true };
+        }
+        async function apiUpdate(model) {
+            const res = await fetch('/Category/Update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(model) });
+            if (res.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
+            if (res.status === 409) { const d = await res.json().catch(() => ({})); alert(d?.message || 'Kod çakışması.'); return { ok: false }; }
+            if (res.status === 400) { const t = await res.text(); alert(t || 'Geçersiz istek'); return { ok: false }; }
+            if (!res.ok) { alert('Güncelleme başarısız'); return { ok: false }; }
+            return { ok: true };
+        }
+        async function apiDelete(model) {
+            const res = await fetch('/Category/Delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(model) });
+            if (res.status === 404) { alert('Kayıt bulunamadı.'); return { ok: false }; }
+            if (res.status === 409) { const d = await res.json().catch(() => ({})); alert(d?.message || 'İlişkili olduğu için silinemedi.'); return { ok: false }; }
+            if (!res.ok) { alert('Silme başarısız'); return { ok: false }; }
+            return { ok: true };
+        }
 
-  const r=await apiCreate(payload); if(!r.ok) return;
-  alert('Kayıt eklendi.');
-  const list=await apiList(type, $('searchBox').value||""); renderList(list); clearForm();
-});
+        // ---- yükleme & event wiring
+        async function loadList() {
+            try {
+                const type = currentTypeValue();
+                const q = $('searchBox').value || "";
+                const list = await apiList(type, q);
+                renderList(list);
+                clearForm();            // butonlar ve form reset
+                setTypeOnForm(type);    // formda tür başlığını/readonly vs. güncelle
+            } catch (e) {
+                console.error(e);
+                alert('Liste alınırken hata oluştu.');
+            }
+        }
 
-$('btnUpdate')?.addEventListener('click', async ()=>{
-  const id=getSelectedId(); if(!id){ alert('Seçim yok'); return; }
-  const type=parseInt($('typePicker').value);
-  const code=($('Code').value||"").trim();
-  const name=($('Name').value||"").trim();
-  if(!code || !name){ alert('Kod ve Ad zorunlu'); return; }
+        // ilk yükleme
+        (async () => {
+            const picker = $('typePicker');
+            setTypeOnForm(picker.value);
+            await loadList();
+        })();
 
-  const payload = (type===CASH_TYPE)
-    ? { id, lookupType:type, code, name, transactionSign: parseInt($('TransactionSign').value||"0") }
-    : { id, lookupType:type, code, name };
+        // tür değişince listeyi kesin yenile
+        $('typePicker')?.addEventListener('change', async function () {
+            setTypeOnForm(this.value);
+            clearForm();
+            await loadList();
+        });
 
-  const r=await apiUpdate(payload); if(!r.ok) return;
-  alert('Güncellendi.');
-  const list=await apiList(type, $('searchBox').value||""); renderList(list); clearForm();
-});
+        // arama yazdıkça listeyi yenile (gerekirse debounce eklenebilir)
+        $('searchBox')?.addEventListener('input', async function () {
+            await loadList();
+        });
 
-$('btnDelete')?.addEventListener('click', async ()=>{
-  const id=getSelectedId(); if(!id){ alert('Seçim yok'); return; }
-  if(!confirm('Silmek istediğinize emin misiniz?')) return;
-  const type=parseInt($('typePicker').value);
-  const r=await apiDelete({ id, lookupType:type }); if(!r.ok) return;
-  const active=document.querySelector('#listHost .lookup-item.active'); if(active){ active.parentElement.removeChild(active); }
-  $('countBadge').innerText=document.querySelectorAll('#listHost .lookup-item').length.toString();
-  clearForm();
-});
-</script>
+        // Kaydet
+        $('btnSave')?.addEventListener('click', async () => {
+            const type = currentTypeValue();
+            const code = ($('Code').value || "").trim();
+            const name = ($('Name').value || "").trim();
+            if (!code || !name) { alert('Kod ve Ad zorunlu'); return; }
 
-<style>
-.lookup-item.active{ background-color:#e7f1ff!important; color:inherit!important; border-color:#cfe2ff!important; }
-.lookup-item.active *{ color:inherit!important; }
-.id-badge{ color:#000!important; background-color:#f8f9fa!important; border:1px solid #dee2e6!important; font-weight:500; }
-.avatar{ font-weight:600; }
-@@media (max-width:991.98px){ #listHost{ max-height:40vh; } }
-</style>
+            const payload = (type === CASH_TYPE)
+                ? { lookupType: type, code, name, transactionSign: parseInt($('TransactionSign').value || "0", 10) }
+                : { lookupType: type, code, name };
+
+            const r = await apiCreate(payload); if (!r.ok) return;
+            alert('Kayıt eklendi.');
+            await loadList();
+        });
+
+        // Güncelle
+        $('btnUpdate')?.addEventListener('click', async () => {
+            const id = getSelectedId(); if (!id) { alert('Seçim yok'); return; }
+            const type = currentTypeValue();
+            const code = ($('Code').value || "").trim();
+            const name = ($('Name').value || "").trim();
+            if (!code || !name) { alert('Kod ve Ad zorunlu'); return; }
+
+            const payload = (type === CASH_TYPE)
+                ? { id, lookupType: type, code, name, transactionSign: parseInt($('TransactionSign').value || "0", 10) }
+                : { id, lookupType: type, code, name };
+
+            const r = await apiUpdate(payload); if (!r.ok) return;
+            alert('Güncellendi.');
+            await loadList();
+        });
+
+        // Sil
+        $('btnDelete')?.addEventListener('click', async () => {
+            const id = getSelectedId(); if (!id) { alert('Seçim yok'); return; }
+            if (!confirm('Silmek istediğinize emin misiniz?')) return;
+            const type = currentTypeValue();
+            const r = await apiDelete({ id, lookupType: type }); if (!r.ok) return;
+            alert('Silindi.');
+            await loadList();
+        });
+    </script>
+
+    <style>
+        .lookup-item.active {
+            background-color: #e7f1ff !important;
+            color: inherit !important;
+            border-color: #cfe2ff !important;
+        }
+
+            .lookup-item.active * {
+                color: inherit !important;
+            }
+
+        .id-badge {
+            color: #000 !important;
+            background-color: #f8f9fa !important;
+            border: 1px solid #dee2e6 !important;
+            font-weight: 500;
+        }
+
+        .avatar {
+            font-weight: 600;
+        }
+
+        @@media (max-width:991.98px) {
+            #listHost {
+                max-height: 40vh;
+            }
+        }
+    </style>
 }

@@ -13,12 +13,12 @@ namespace MoriWEB.Controllers
         [HttpGet]
         public IActionResult ProductSales() => View();
 
-        // LOOKUPS: müşteri, ürün, ödeme tipleri
+        // LOOKUPS: müşteri, ürün, ödeme tipleri (en son eklenen ilk)
         [HttpGet]
         public async Task<IActionResult> Lookups()
         {
             var customers = await _db.Customers.AsNoTracking()
-                .OrderBy(x => x.FirstName).ThenBy(x => x.LastName)
+                .OrderByDescending(x => x.Id)
                 .Select(x => new
                 {
                     id = x.Id,
@@ -28,13 +28,13 @@ namespace MoriWEB.Controllers
                 .ToListAsync();
 
             var products = await _db.Products.AsNoTracking()
-                .OrderBy(p => p.Name)
+                .OrderByDescending(p => p.Id)
                 .Select(p => new { id = p.Id, code = p.Code, name = p.Name })
                 .ToListAsync();
 
             var paymentTypes = await _db.Lookups.AsNoTracking()
                 .Where(l => l.LookupType == LookupType.PaymentType)
-                .OrderBy(l => l.Name)
+                .OrderByDescending(l => l.Id)
                 .Select(l => new { id = l.Id, name = l.Name })
                 .ToListAsync();
 
@@ -51,14 +51,14 @@ namespace MoriWEB.Controllers
 
             var lastLabel = await _db.ProductEntries.AsNoTracking()
                 .Where(pe => pe.ProductId == productId && pe.SalesPrice != null)
-                .OrderByDescending(pe => pe.CreateDate)
+                .OrderByDescending(pe => pe.Id).ThenByDescending(pe => pe.CreateDate)
                 .Select(pe => pe.SalesPrice)
                 .FirstOrDefaultAsync();
 
             return Json(new { totalRemaining, lastLabelPrice = lastLabel ?? 0m });
         }
 
-        // Liste
+        // Liste / Arama (en son eklenen ilk)
         [HttpGet]
         public async Task<IActionResult> Search(string? q)
         {
@@ -67,7 +67,7 @@ namespace MoriWEB.Controllers
             var list = await _db.ProductSales.AsNoTracking()
                 .Include(s => s.Customer)
                 .Include(s => s.PaymentType)
-                .OrderByDescending(s => s.CreateDate)
+                .OrderByDescending(s => s.Id).ThenByDescending(s => s.CreateDate)
                 .Select(s => new
                 {
                     s.Id,
@@ -119,33 +119,26 @@ namespace MoriWEB.Controllers
             return Json(list);
         }
 
-        // CashTransactionType Id bulma (Lookups üzerinden)
+        // CashTransactionType Id bulma (Lookups: SATIS veya sign=1)
         private async Task<int?> FindCashTransactionTypeIdForSale()
         {
-            // 1) Code ile dene (tercih edilen)
             var byCode = await _db.Lookups.AsNoTracking()
                 .Where(l => l.LookupType == LookupType.CashTransactionType && l.Code == "SATIS")
                 .Select(l => (int?)l.Id)
                 .FirstOrDefaultAsync();
             if (byCode != null) return byCode;
 
-            // 2) Sign = 1 (Çıkış / +) olan ilk kaydı al
             var bySign = await _db.Lookups.AsNoTracking()
                 .Where(l => l.LookupType == LookupType.CashTransactionType && l.TransactionSign == 1)
                 .OrderBy(l => l.Id)
                 .Select(l => (int?)l.Id)
                 .FirstOrDefaultAsync();
-            if (bySign != null) return bySign;
-
-            // 3) (İstersen) sabit ID kullan:
-            // const int HARDCODED_ID = 1; return HARDCODED_ID;
-
-            return null;
+            return bySign;
         }
 
-        // CREATE — FIFO tüketim + kasa
+        // CREATE — FIFO tüketim + kasa (yalnızca Ödenen Tutar kadar)
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] ProductSales dto, int productId)
+        public async Task<IActionResult> Create([FromBody] ProductSales dto, int productId, decimal? paymentAmount)
         {
             if (dto == null) return BadRequest("Geçersiz veri");
             if (productId <= 0) return BadRequest("Ürün zorunludur.");
@@ -179,7 +172,7 @@ namespace MoriWEB.Controllers
                 var sale = new ProductSales
                 {
                     CustomerId = dto.CustomerId,
-                    ProductEntryId = null,   // FIFO ile birden çok girişten tüketeceğiz
+                    ProductEntryId = null,
                     Amount = dto.Amount,
                     SalesPrice = dto.SalesPrice,
                     SalesDiscount = dto.SalesDiscount,
@@ -212,28 +205,34 @@ namespace MoriWEB.Controllers
                 }
                 await _db.SaveChangesAsync();
 
-                // Kasa: satış geliri → CashTransactionType (TransactionSign=1 / Çıkış +)
-                var cashTypeId = await FindCashTransactionTypeIdForSale();
-                if (cashTypeId == null) return BadRequest("Kasa işlem türü (SATIS/Çıkış) tanımlı değil.");
+                // Ödenen Tutar -> Kasa
+                var pay = Math.Max(0m, paymentAmount ?? 0m);
+                if (pay > total) return BadRequest("Ödenen Tutar satış toplamını geçemez.");
 
-                _db.CashTransactions.Add(new CashTransaction
+                if (pay > 0)
                 {
-                    ProductSalesId = sale.Id,
-                    CashTransactionTypeId = cashTypeId,
-                    Amount = total,
-                    Description = $"Satış (ÜrünId={productId}) x{required}",
-                    CreateDate = sale.CreateDate
-                });
-                await _db.SaveChangesAsync();
+                    var cashTypeId = await FindCashTransactionTypeIdForSale();
+                    if (cashTypeId == null) return BadRequest("Kasa işlem türü (SATIS) tanımlı değil.");
+
+                    _db.CashTransactions.Add(new CashTransaction
+                    {
+                        ProductSalesId = sale.Id,
+                        CashTransactionTypeId = cashTypeId,
+                        Amount = pay,
+                        Description = $"Satış Peşin Ödemesi (SalesId={sale.Id})",
+                        CreateDate = sale.CreateDate
+                    });
+                    await _db.SaveChangesAsync();
+                }
 
                 await tx.CommitAsync();
                 return Ok(new { ok = true, id = sale.Id }) as IActionResult;
             });
         }
 
-        // UPDATE — eski tüketimi iade + yeniden FIFO + kasa güncelle
+        // UPDATE — FIFO'yu yeniden yaz + peşin ödeme kaydını güncelle/ekle
         [HttpPost]
-        public async Task<IActionResult> Update([FromBody] ProductSales dto, int productId)
+        public async Task<IActionResult> Update([FromBody] ProductSales dto, int productId, decimal? paymentAmount)
         {
             if (dto == null || dto.Id <= 0) return BadRequest("Geçersiz Id");
             if (productId <= 0) return BadRequest("Ürün zorunludur.");
@@ -307,25 +306,46 @@ namespace MoriWEB.Controllers
                 }
                 await _db.SaveChangesAsync();
 
-                // Kasa güncelle
-                var cash = await _db.CashTransactions.FirstOrDefaultAsync(c => c.ProductSalesId == sale.Id);
-                if (cash != null)
+                // Ödenen Tutar (peşin ödeme kaydını güncelle/ekle)
+                var pay = Math.Max(0m, paymentAmount ?? 0m);
+                if (pay > sale.TotalPrice) return BadRequest("Ödenen Tutar satış toplamını geçemez.");
+
+                var cash = await _db.CashTransactions
+                    .Where(c => c.ProductSalesId == sale.Id)
+                    .OrderBy(c => c.Id)
+                    .FirstOrDefaultAsync();
+
+                if (cash == null)
                 {
-                    cash.Amount = sale.TotalPrice;
-                    cash.Description = $"Satış (Güncelleme): SalesId={sale.Id} x{sale.Amount}";
+                    if (pay > 0)
+                    {
+                        var ctId = await FindCashTransactionTypeIdForSale();
+                        if (ctId == null) return BadRequest("Kasa işlem türü (SATIS) tanımlı değil.");
+                        _db.CashTransactions.Add(new CashTransaction
+                        {
+                            ProductSalesId = sale.Id,
+                            CashTransactionTypeId = ctId,
+                            Amount = pay,
+                            Description = $"Satış Peşin Ödemesi (SalesId={sale.Id})",
+                            CreateDate = sale.CreateDate
+                        });
+                    }
+                }
+                else
+                {
+                    cash.Amount = pay; // 0 girilirse 0'a çekilir
+                    cash.Description = $"Satış (Güncelleme: Peşin Ödeme) SalesId={sale.Id}";
                     cash.CreateDate = sale.CreateDate;
 
-                    // Tür korunur; yine de null ise bul ve set et
                     if (!(cash.CashTransactionTypeId > 0))
                     {
                         var ctId = await FindCashTransactionTypeIdForSale();
-                        if (ctId == null) return BadRequest("Kasa işlem türü (SATIS/Çıkış) tanımlı değil.");
+                        if (ctId == null) return BadRequest("Kasa işlem türü (SATIS) tanımlı değil.");
                         cash.CashTransactionTypeId = ctId;
                     }
-
-                    await _db.SaveChangesAsync();
                 }
 
+                await _db.SaveChangesAsync();
                 await tx.CommitAsync();
                 return Ok(new { ok = true, id = sale.Id }) as IActionResult;
             });

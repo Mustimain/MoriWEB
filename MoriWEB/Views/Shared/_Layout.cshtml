@@ -1,9 +1,11 @@
 ﻿@{
     var ctrl = (ViewContext.RouteData.Values["controller"]?.ToString() ?? "").ToLower();
     var act = (ViewContext.RouteData.Values["action"]?.ToString() ?? "").ToLower();
+
     bool IsActive(string c, string a = "") =>
         string.Equals(ctrl, c, StringComparison.OrdinalIgnoreCase) &&
         (string.IsNullOrEmpty(a) || string.Equals(act, a, StringComparison.OrdinalIgnoreCase));
+
 }
 <!DOCTYPE html>
 <html lang="tr">
@@ -33,42 +35,56 @@
             <div class="collapse navbar-collapse" id="mainNav">
                 <ul class="navbar-nav ms-3 nav-compact">
                     <li class="nav-item">
-                        <a class="nav-link text-white" asp-controller="Product" asp-action="Products">
+                        <a class="nav-link text-white @(IsActive("Product","Products") ? "active" : "")"
+                           asp-controller="Product" asp-action="Products">
                             <i class="bi bi-box-seam"></i> Ürün Oluştur
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link text-white" asp-controller="ProductEntry" asp-action="ProductEntries">
+                        <a class="nav-link text-white @(IsActive("ProductEntry","ProductEntries") ? "active" : "")"
+                           asp-controller="ProductEntry" asp-action="ProductEntries">
                             <i class="bi bi-arrow-down-square"></i> Ürün Stok Girişi Yap
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link text-white" asp-controller="ProductSale" asp-action="ProductSales">
+                        <a class="nav-link text-white @(IsActive("ProductSale","ProductSales") ? "active" : "")"
+                           asp-controller="ProductSale" asp-action="ProductSales">
                             <i class="bi bi-arrow-up-square"></i> Satış Yap
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link text-white" asp-controller="Customer" asp-action="Customers">
+                        <a class="nav-link text-white @(IsActive("Customer","Customers") ? "active" : "")"
+                           asp-controller="Customer" asp-action="Customers">
                             <i class="bi bi-people"></i> Müşteri Ekle
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link text-white" asp-controller="Category" asp-action="Categories">
+                        <a class="nav-link text-white @(IsActive("Category","Categories") ? "active" : "")"
+                           asp-controller="Category" asp-action="Categories">
                             <i class="bi bi-tags"></i> Kategori Ekle
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a class="nav-link text-white" asp-controller="Account" asp-action="MyAccount">
+                        <a class="nav-link text-white @(IsActive("Account","MyAccount") ? "active" : "")"
+                           asp-controller="Account" asp-action="MyAccount">
                             <i class="bi bi-cash-coin"></i> Kasa
                         </a>
                     </li>
                 </ul>
 
+                <!-- Sağ taraf -->
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="javascript:void(0)" onclick="logout()">
+                            <i class="bi bi-box-arrow-right"></i> Çıkış
+                        </a>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
@@ -85,10 +101,18 @@
         </div>
     </footer>
 
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
+
+    <script>
+        function logout() {
+            try{
+                localStorage.removeItem("jwt");
+                localStorage.removeItem("jwt_exp");
+                    }catch(_){}
+            window.location.href = "/Login/Login";
+                }
+    </script>
 
     <style>
         body {
@@ -130,20 +154,18 @@
         }
 
         .navbar .nav-compact {
-            gap: .45rem; /* <li>’ler arası */
+            gap: .45rem;
         }
 
-            /* Linklerin iç dolgusu daha kompakt */
             .navbar .nav-compact .nav-link {
-                padding: .35rem .6rem; /* sağ/sol daha dar */
+                padding: .35rem .6rem;
                 display: inline-flex;
                 align-items: center;
                 line-height: 1.2;
             }
 
-                /* İkon ile başlık arasında hafif boşluk */
                 .navbar .nav-compact .nav-link i {
-                    margin-right: .4rem; /* ikon–metin arası boşluk */
+                    margin-right: .4rem;
                     line-height: 1;
                 }
     </style>

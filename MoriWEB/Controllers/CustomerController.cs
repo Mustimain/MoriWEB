@@ -9,31 +9,26 @@ namespace MoriWEB.Controllers
     {
         private readonly MoriDbContext _db;
 
-        public CustomerController(MoriDbContext db)
-        {
-            _db = db;
-        }
-        public IActionResult Index()
-        {
-            return View();
-        } 
-        
-        public IActionResult Customers()
-        {
-            return View();
-        }
+        public CustomerController(MoriDbContext db) => _db = db;
 
+        public IActionResult Index() => View();
+        public IActionResult Customers() => View();
 
+        // LİSTE / ARAMA — en son eklenen ilk (Id DESC), ad/telefon/e-posta üzerinde arama
         [HttpGet]
         public async Task<IActionResult> Search(string? q)
         {
             q = (q ?? "").Trim().ToLower();
 
             var list = await _db.Customers.AsNoTracking()
-                .Where(c => q == "" ||
-                            (c.FirstName + " " + c.LastName).ToLower().Contains(q) ||
-                            c.PhoneNumber.ToLower().Contains(q))
-                .OrderBy(c => c.FirstName).ThenBy(c => c.LastName)
+                .Where(c =>
+                    q == "" ||
+                    ((c.FirstName ?? "") + " " + (c.LastName ?? "")).ToLower().Contains(q) ||
+                    (c.PhoneNumber ?? "").ToLower().Contains(q) ||
+                    (c.EmailAdress ?? "").ToLower().Contains(q)
+                )
+                .OrderByDescending(c => c.Id)      // en yeni üstte
+                .ThenBy(c => c.FirstName)          // ikincil sıralama
                 .Select(c => new {
                     c.Id,
                     c.TcNo,
@@ -66,7 +61,7 @@ namespace MoriWEB.Controllers
             await _db.SaveChangesAsync();
             return Ok(new { ok = true, id = dto.Id });
         }
- 
+
         [HttpPost]
         public async Task<IActionResult> Update([FromBody] Customer dto)
         {
@@ -115,7 +110,6 @@ namespace MoriWEB.Controllers
             }
             catch (DbUpdateException ex)
             {
-                // Örn. FK kısıtı nedeniyle silinemiyorsa
                 return Conflict(new { ok = false, message = "Kayıt silinemedi. İlişkili kayıtlar olabilir.", detail = ex.Message });
             }
         }

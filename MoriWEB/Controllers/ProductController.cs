@@ -14,44 +14,42 @@ namespace MoriWEB.Controllers
         [HttpGet]
         public IActionResult Products() => View();
 
-        // LOOKUPS
         [HttpGet]
         public async Task<IActionResult> Lookups()
         {
             var categories = await _db.Lookups.AsNoTracking()
                 .Where(x => x.LookupType == LookupType.Category)
-                .OrderBy(x => x.Name)
+                .OrderByDescending(x => x.Id)
                 .Select(x => new { id = x.Id, code = x.Code, name = x.Name })
                 .ToListAsync();
 
             var brands = await _db.Lookups.AsNoTracking()
                 .Where(x => x.LookupType == LookupType.Brand)
-                .OrderBy(x => x.Name)
+                .OrderByDescending(x => x.Id)
                 .Select(x => new { id = x.Id, code = x.Code, name = x.Name })
                 .ToListAsync();
 
             var fabrics = await _db.Lookups.AsNoTracking()
                 .Where(x => x.LookupType == LookupType.FabricType)
-                .OrderBy(x => x.Name)
+                .OrderByDescending(x => x.Id)
                 .Select(x => new { id = x.Id, code = x.Code, name = x.Name })
                 .ToListAsync();
 
             var models = await _db.Lookups.AsNoTracking()
                 .Where(x => x.LookupType == LookupType.Model)
-                .OrderBy(x => x.Name)
+                .OrderByDescending(x => x.Id)
                 .Select(x => new { id = x.Id, code = x.Code, name = x.Name })
                 .ToListAsync();
 
             var colors = await _db.Lookups.AsNoTracking()
                 .Where(x => x.LookupType == LookupType.Color)
-                .OrderBy(x => x.Name)
+                .OrderByDescending(x => x.Id)
                 .Select(x => new { id = x.Id, code = x.Code, name = x.Name })
                 .ToListAsync();
 
             return Json(new { categories, brands, fabrics, models, colors });
         }
 
-        // LİSTE / ARAMA
         [HttpGet]
         public async Task<IActionResult> Search(string? q)
         {
@@ -68,7 +66,7 @@ namespace MoriWEB.Controllers
                             (p.FabricType!.Name ?? "").ToLower().Contains(q) ||
                             (p.Model!.Name ?? "").ToLower().Contains(q) ||
                             (p.Color!.Name ?? "").ToLower().Contains(q))
-                .OrderBy(p => p.Name)
+                .OrderByDescending(p => p.Id) 
                 .Select(p => new {
                     p.Id,
                     p.Code,
@@ -87,6 +85,7 @@ namespace MoriWEB.Controllers
 
             return Json(list);
         }
+
 
         // OLUŞTUR
         [HttpPost]

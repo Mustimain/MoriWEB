@@ -15,6 +15,7 @@ namespace MoriWEB.DatabaseContext
         public DbSet<Customer> Customers => Set<Customer>();
         public DbSet<CashTransaction> CashTransactions => Set<CashTransaction>();
         public DbSet<ProductSaleConsumption> ProductSaleConsumptions => Set<ProductSaleConsumption>();
+        public DbSet<User> Users => Set<User>();
 
         protected override void OnModelCreating(ModelBuilder mb)
         {
@@ -125,6 +126,13 @@ namespace MoriWEB.DatabaseContext
               .WithMany()
               .HasForeignKey(x => x.ProductEntryId)
               .OnDelete(DeleteBehavior.Restrict);
+
+            mb.Entity<User>(e =>
+            {
+                e.HasIndex(x => x.UserName).IsUnique();
+                e.Property(x => x.UserName).HasMaxLength(100).IsRequired();
+                e.Property(x => x.PasswordHash).HasMaxLength(500).IsRequired();
+            });
         }
     }
 }
