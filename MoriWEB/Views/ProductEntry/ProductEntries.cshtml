@@ -3,8 +3,7 @@
     Layout = "_Layout";
 }
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+<!-- Sadece Tom Select CSS (_Layout Bootstrap/Icons yüklüyor) -->
 <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet" />
 
 <div class="container-fluid py-3">
@@ -23,7 +22,8 @@
                         <input id="searchBox" type="text" class="form-control" placeholder="Ara: ürün adı/kodu, firma adı/kodu, tarih">
                     </div>
 
-                    <div id="entryList" class="list-group list-group-flush border rounded" style="max-height: 65vh; overflow:auto;">
+                    <!-- 🔧 DÖNEN LİSTE KONTEYNERİ GERİ EKLENDİ -->
+                    <div id="entryList" class="list-group list-group-flush border rounded" style="max-height:65vh; overflow:auto;">
                         @* JS ile doldurulacak *@
                     </div>
                 </div>
@@ -47,14 +47,15 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Firma <span class="text-danger">*</span></label>
-                            <select id="CompanyId" class="form-select" required>
+                            <!-- form-select SINIFI BİLEREK YOK (TomSelect kendi UI’sini verir) -->
+                            <select id="CompanyId" required>
                                 <option value="">Seçiniz...</option>
                             </select>
                             <div class="invalid-feedback">Firma seçiniz.</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Ürün <span class="text-danger">*</span></label>
-                            <select id="ProductId" class="form-select" required>
+                            <select id="ProductId" required>
                                 <option value="">Seçiniz...</option>
                             </select>
                             <div class="invalid-feedback">Ürün seçiniz.</div>
@@ -115,7 +116,7 @@
 <script>
 /* -------- Helpers -------- */
 function g(o,...keys){ for(const k of keys){ if(o && o[k]!=null) return o[k]; } return ""; }
-function refreshCount(){ const c=document.querySelectorAll('#entryList .entry-item').length; document.getElementById('listCount').innerText=c; }
+function refreshCount(){ const c=document.querySelectorAll('#entryList .entry-item').length; const b=document.getElementById('listCount'); if(b) b.innerText=c; }
 function normalizeDateForInput(v){ if(!v) return ""; if(typeof v==="string") return v.length>=10?v.substring(0,10):v; const d=v; if(d instanceof Date){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`;} return ""; }
 function tl(v){ const n=Number(v||0); return n.toLocaleString('tr-TR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
 
@@ -125,7 +126,6 @@ function initTom(selectId, items, showCode){
   const el = document.getElementById(selectId);
   if(!el) return;
 
-  // mevcut varsa temizle
   if(ts[selectId]){ ts[selectId].destroy(); ts[selectId]=null; }
 
   const opts = (items||[]).map(x=>({
@@ -197,14 +197,13 @@ function setForm(obj){
     let v=g(obj,...keys); if(k==='CreateDate') v=normalizeDateForInput(v);
 
     if(k==='CompanyId' || k==='ProductId'){
-      // TomSelect üzerinden set
       if(ts[k]){
         ts[k].setValue(v?String(v):"");
         ts[k].wrapper.classList.remove('is-invalid');
       }
     }else{
-        el.value=(v ?? '');
-        el.classList.remove('is-invalid');
+      el.value=(v ?? '');
+      el.classList.remove('is-invalid');
     }
   }
 }
@@ -244,8 +243,10 @@ function calcNet(){
 
 /* Liste render */
 function renderList(items){
-  const host=document.getElementById('entryList'); host.innerHTML="";
-  items.forEach(e=>{
+  const host=document.getElementById('entryList');
+  if(!host){ console.warn('#entryList bulunamadı'); return; }
+  host.innerHTML="";
+  (items||[]).forEach(e=>{
     const id=g(e,'id','Id');
     const pCd=g(e,'productCode','ProductCode')||'';
     const pNm=g(e,'productName','ProductName')||'(Ürün yok)';
@@ -279,39 +280,25 @@ function renderList(items){
   refreshCount();
 }
 
-/* API */
-async function apiLookups(){ const r=await fetch('/ProductEntry/Lookups'); if(!r.ok) throw new Error('Lookups alınamadı'); return r.json(); }
-async function apiList(q=""){ const r=await fetch(`/ProductEntry/Search?q=${encodeURIComponent(q)}`); if(!r.ok) throw new Error('Liste alınamadı'); return r.json(); }
+/* API (ui yardımcıları) */
+async function apiLookups(){ return await ui.apiGet('/ProductEntry/Lookups'); }
+async function apiList(q=""){ try{ return await ui.apiGet(`/ProductEntry/Search?q=${encodeURIComponent(q)}`); }catch{ return []; } }
 async function apiCreate(model){
   const pay=document.getElementById('PaymentAmount').value||"0";
-  const r=await fetch(`/ProductEntry/Create?paymentAmount=${encodeURIComponent(pay)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(model)});
-  if(r.status===400){ const t=await r.text().catch(()=> ''); alert(t||'Zorunlu alanları kontrol edin.'); return {ok:false}; }
-  if(!r.ok){ const t=await r.text().catch(()=> ''); alert(t||'Kayıt başarısız'); return {ok:false}; }
-  return {ok:true, data: await r.json()};
+  return await ui.apiPostJson(`/ProductEntry/Create?paymentAmount=${encodeURIComponent(pay)}`, model);
 }
 async function apiUpdate(id,model){
   const pay=document.getElementById('PaymentAmount').value||"0";
-  const r=await fetch(`/ProductEntry/Update?paymentAmount=${encodeURIComponent(pay)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...model, Id:id})});
-  if(r.status===404){ alert('Kayıt bulunamadı.'); return {ok:false}; }
-  if(r.status===400){ const t=await r.text().catch(()=> ''); alert(t||'Zorunlu alanları kontrol edin.'); return {ok:false}; }
-  if(r.status===409){ const t=await r.text().catch(()=> ''); alert(t||'Bu girişten düşüm yapılmış. Önce bağlı satışları iptal edin.'); return {ok:false}; }
-  if(!r.ok){ const t=await r.text().catch(()=> ''); alert(t||'Güncelleme başarısız'); return {ok:false}; }
-  return {ok:true, data: await r.json()};
+  return await ui.apiPostJson(`/ProductEntry/Update?paymentAmount=${encodeURIComponent(pay)}`, { ...model, Id:id });
 }
 async function apiDelete(id){
-  const r=await fetch('/ProductEntry/Delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({Id:id})});
-  if(r.status===404){ alert('Kayıt bulunamadı.'); return {ok:false}; }
-  if(r.status===400){ alert('Geçersiz istek (id).'); return {ok:false}; }
-  if(r.status===409){ const t=await r.text().catch(()=> ''); alert(t||'Bu girişten düşüm yapılmış. Önce bağlı satışları iptal edin.'); return {ok:false}; }
-  if(!r.ok){ alert('Silme başarısız'); return {ok:false}; }
-  return {ok:true};
+  return await ui.apiPostJson('/ProductEntry/Delete', { Id:id });
 }
 
 /* Validasyon */
 function validateForm(){
   let ok=true;
 
-  // TomSelect kontrolleri
   const compBad = !ts['CompanyId'] || !ts['CompanyId'].getValue();
   const prodBad = !ts['ProductId'] || !ts['ProductId'].getValue();
 
@@ -333,60 +320,66 @@ function validateForm(){
 
   const net=parseFloat(document.getElementById('NetPrice').value||'0');
   const paid=parseFloat(document.getElementById('PaymentAmount').value||'0');
-  if(paid<0 || paid>net){ alert('Ödenen Tutar, net toplamı geçemez.'); ok=false; }
+  if(paid<0 || paid>net){ ui.showToast('error','Ödenen Tutar, net toplamı geçemez.'); ok=false; }
   return ok;
 }
 
 /* Init */
 (async()=>{
-  const l = await apiLookups();
-  // Firma: sadece ad araması (name & code alanları var)
-  initTom('CompanyId', l.companies, false);
-  // Ürün: stok kodu + ad göster, kod ve ada göre arama
-  initTom('ProductId', l.products, true);
+  const l = await apiLookups().catch(()=>null);
+  if(l){
+    initTom('CompanyId', l.companies, false);
+    initTom('ProductId',  l.products,  true);
+  }
 
   const d=new Date(), y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
   document.getElementById('CreateDate').value=`${y}-${m}-${day}`;
 
   const items=await apiList("");
   renderList(items);
-  setSelected(0); // seçim yok → Kaydet görünsün
+  setSelected(0);
 })();
 
 document.getElementById('searchBox')?.addEventListener('input', async function(){
   const items=await apiList(this.value||"");
   renderList(items);
-  setSelected(0); // arama sonrası seçim sıfırlansın
+  setSelected(0);
 });
 
 btnSave?.addEventListener('click', async ()=>{
-  if(!validateForm()){ return; }
+  if(!validateForm()){ ui.showToast('error','Zorunlu alanları kontrol edin.'); return; }
   const body=getForm();
-  const r=await apiCreate(body); if(!r.ok) return;
-  alert('Stok girişi oluşturuldu.');
+  const r=await apiCreate(body);
+  if(!r.ok){
+    ui.showToast('error', r.message || 'Kayıt başarısız.');
+    return;
+  }
+  ui.showToast('success','Stok girişi oluşturuldu.');
   const items=await apiList(document.getElementById('searchBox')?.value||"");
   renderList(items);
   clearForm(); setSelected(0);
 });
 
 btnUpdate?.addEventListener('click', async ()=>{
-  const id=getSelectedId(); if(!id){ alert('Seçim yok'); return; }
-  if(!validateForm()){ return; }
+  const id=getSelectedId(); if(!id){ ui.showToast('error','Seçim yok.'); return; }
+  if(!validateForm()){ ui.showToast('error','Zorunlu alanları kontrol edin.'); return; }
   const body=getForm();
-  const r=await apiUpdate(id, body); if(!r.ok) return;
-  alert('Güncellendi.');
+  const r=await apiUpdate(id, body); if(!r.ok){ ui.showToast('error', r.message || 'Güncelleme başarısız.'); return; }
+  ui.showToast('success','Güncellendi.');
   const items=await apiList(document.getElementById('searchBox')?.value||"");
   renderList(items);
   clearForm(); setSelected(0);
 });
 
 btnDelete?.addEventListener('click', async ()=>{
-  const id=getSelectedId(); if(!id){ alert('Seçim yok'); return; }
-  if(!confirm('Silmek istediğinize emin misiniz?')) return;
-  const r=await apiDelete(id); if(!r.ok) return;
+  const id=getSelectedId(); if(!id){ ui.showToast('error','Seçim yok.'); return; }
+  const ok = await ui.showConfirm('Silmek istediğinize emin misiniz?', 'Silme Onayı');
+  if(!ok) return;
+  const r=await apiDelete(id); if(!r.ok){ ui.showToast('error', r.message || 'Silme başarısız.'); return; }
   const active=document.querySelector('#entryList .entry-item.active'); if(active){ active.remove(); refreshCount(); }
   clearForm();
   setSelected(0);
+  ui.showToast('success','Kayıt silindi.');
 });
 </script>
 
@@ -398,15 +391,42 @@ btnDelete?.addEventListener('click', async ()=>{
 @@media (max-width: 991.98px){ #entryList{ max-height:40vh; } }
 .is-invalid{ border-color:#dc3545 !important; }
 
-/* Tom Select invalid sınırı */
-.ts-wrapper.is-invalid .ts-control{ border-color:#dc3545 !important; }
-.ts-wrapper{ border:0 !important; box-shadow:none !important; }
-.ts-wrapper .ts-control{
-  border:1px solid var(--bs-border-color) !important;
+/* ---------- Tom Select: tek sınır, çift çizgi yok ---------- */
+body .ts-wrapper{ width:100%; }
+body .ts-wrapper .ts-control{
+  border:1px solid var(--bs-border-color, #ced4da) !important;
   border-radius:.375rem !important;
+  background:#fff !important;
   min-height:calc(2.5rem + 2px);
   padding:.375rem .75rem;
   box-shadow:none !important;
 }
+body .ts-wrapper .ts-control *{ box-shadow:none !important; }
+
+/* Focus */
+body .ts-wrapper.focus .ts-control,
+body .ts-wrapper .ts-control:focus-within{
+  border-color:#86b7fe !important;
+  outline:0;
+  box-shadow:0 0 0 .25rem rgba(13,110,253,.25) !important;
+}
+
+/* Invalid */
+body .ts-wrapper.is-invalid .ts-control{
+  border-color:#dc3545 !important;
+  box-shadow:0 0 0 .25rem rgba(220,53,69,.25) !important;
+}
+
+/* Dropdown */
+body .ts-dropdown{
+  border:1px solid var(--bs-border-color, #ced4da) !important;
+  border-radius:.375rem !important;
+  box-shadow:0 .5rem 1rem rgba(0,0,0,.15);
+  overflow:hidden;
+}
+
+/* Input/pill hizası */
+body .ts-wrapper .ts-control input{ margin:0 !important; padding:0 !important; }
+body .ts-wrapper .item{ line-height:1.25rem; }
 </style>
 }

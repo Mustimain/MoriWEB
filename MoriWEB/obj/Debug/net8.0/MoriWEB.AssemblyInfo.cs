@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MoriWEB")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ec86e659b38df52924c6afe01e785b66657f990b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+433c352daa301a575958d6a51fa578936afeddd7")]
 [assembly: System.Reflection.AssemblyProductAttribute("MoriWEB")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MoriWEB")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

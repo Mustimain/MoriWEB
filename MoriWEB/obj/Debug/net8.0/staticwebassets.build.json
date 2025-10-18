@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "oFEP+wTL9ffntk9zwBGlx6JeOL6Bcp8E/i15hBaBPIg=",
+  "Hash": "JgCPVfwQX6YtUoHzTdyWmy3/wGsjAFkzb20t5vKIvhw=",
   "Source": "MoriWEB",
   "BasePath": "_content/MoriWEB",
   "Mode": "Default",
@@ -110,6 +110,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot\\js\\site.js"
+    },
+    {
+      "Identity": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\wwwroot\\js\\ui-feedback.js",
+      "SourceId": "MoriWEB",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\wwwroot\\",
+      "BasePath": "_content/MoriWEB",
+      "RelativePath": "js/ui-feedback.js",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\js\\ui-feedback.js"
     },
     {
       "Identity": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\wwwroot\\lib\\bootstrap\\dist\\css\\bootstrap.css",

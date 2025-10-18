@@ -17,6 +17,10 @@
       "PackagePath": "staticwebassets\\js\\site.js"
     },
     {
+      "Id": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\wwwroot\\js\\ui-feedback.js",
+      "PackagePath": "staticwebassets\\js\\ui-feedback.js"
+    },
+    {
       "Id": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\wwwroot\\lib\\bootstrap\\LICENSE",
       "PackagePath": "staticwebassets\\lib\\bootstrap"
     },

@@ -3,12 +3,28 @@
   "WorkspaceRootPath": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|c:\\users\\musti\\desktop\\mori\\moriweb\\moriweb\\views\\product\\products.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|solutionrelative:moriweb\\views\\product\\products.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+      "AbsoluteMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|c:\\users\\musti\\desktop\\mori\\moriweb\\moriweb\\views\\productentry\\productentries.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|solutionrelative:moriweb\\views\\productentry\\productentries.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|c:\\users\\musti\\desktop\\mori\\moriweb\\moriweb\\controllers\\productcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|solutionrelative:moriweb\\controllers\\productcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|c:\\users\\musti\\desktop\\mori\\moriweb\\moriweb\\views\\credittracking\\credittrackings.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|solutionrelative:moriweb\\views\\credittracking\\credittrackings.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|c:\\users\\musti\\desktop\\mori\\moriweb\\moriweb\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|solutionrelative:moriweb\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|c:\\users\\musti\\desktop\\mori\\moriweb\\moriweb\\controllers\\credittrackingcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|solutionrelative:moriweb\\controllers\\credittrackingcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|c:\\users\\musti\\desktop\\mori\\moriweb\\moriweb\\models\\cashtransaction.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|solutionrelative:moriweb\\models\\cashtransaction.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|c:\\users\\musti\\desktop\\mori\\moriweb\\moriweb\\databasecontext\\moridbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{31857D77-6C88-40DD-8FD9-FA23BF06A305}|MoriWEB\\MoriWEB.csproj|solutionrelative:moriweb\\databasecontext\\moridbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -23,27 +39,79 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "Products.cshtml",
-              "DocumentMoniker": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Views\\Product\\Products.cshtml",
-              "RelativeDocumentMoniker": "MoriWEB\\Views\\Product\\Products.cshtml",
-              "ToolTip": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Views\\Product\\Products.cshtml",
-              "RelativeToolTip": "MoriWEB\\Views\\Product\\Products.cshtml",
-              "ViewState": "AgIAAJwBAAAAAAAAAAAwwLsBAAAbAAAAAAAAAA==",
+              "Title": "ProductEntries.cshtml",
+              "DocumentMoniker": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Views\\ProductEntry\\ProductEntries.cshtml",
+              "RelativeDocumentMoniker": "MoriWEB\\Views\\ProductEntry\\ProductEntries.cshtml",
+              "ToolTip": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Views\\ProductEntry\\ProductEntries.cshtml",
+              "RelativeToolTip": "MoriWEB\\Views\\ProductEntry\\ProductEntries.cshtml",
+              "ViewState": "AgIAAHsBAAAAAAAAAAAwwLABAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-10-18T13:25:22.389Z",
+              "WhenOpened": "2025-10-18T14:39:32.513Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Program.cs",
+              "RelativeDocumentMoniker": "MoriWEB\\Program.cs",
+              "ToolTip": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Program.cs",
+              "RelativeToolTip": "MoriWEB\\Program.cs",
+              "ViewState": "AgIAADsAAAAAAAAAAAAuwFgAAAAOAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-18T14:37:56.158Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "MoriDbContext.cs",
+              "DocumentMoniker": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\DatabaseContext\\MoriDbContext.cs",
+              "RelativeDocumentMoniker": "MoriWEB\\DatabaseContext\\MoriDbContext.cs",
+              "ToolTip": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\DatabaseContext\\MoriDbContext.cs",
+              "RelativeToolTip": "MoriWEB\\DatabaseContext\\MoriDbContext.cs",
+              "ViewState": "AgIAAFIAAAAAAAAAAAAqwIoAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-18T14:35:36.8Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "CashTransaction.cs",
+              "DocumentMoniker": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Models\\CashTransaction.cs",
+              "RelativeDocumentMoniker": "MoriWEB\\Models\\CashTransaction.cs",
+              "ToolTip": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Models\\CashTransaction.cs",
+              "RelativeToolTip": "MoriWEB\\Models\\CashTransaction.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAAAwAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-18T14:35:12.934Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "CreditTrackingController.cs",
+              "DocumentMoniker": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Controllers\\CreditTrackingController.cs",
+              "RelativeDocumentMoniker": "MoriWEB\\Controllers\\CreditTrackingController.cs",
+              "ToolTip": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Controllers\\CreditTrackingController.cs",
+              "RelativeToolTip": "MoriWEB\\Controllers\\CreditTrackingController.cs",
+              "ViewState": "AgIAAKcAAAAAAAAAAAAqwLoAAAA1AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-18T14:27:40.698Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "ProductController.cs",
-              "DocumentMoniker": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Controllers\\ProductController.cs",
-              "RelativeDocumentMoniker": "MoriWEB\\Controllers\\ProductController.cs",
-              "ToolTip": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Controllers\\ProductController.cs",
-              "RelativeToolTip": "MoriWEB\\Controllers\\ProductController.cs",
-              "ViewState": "AgIAAFYAAAAAAAAAAAAAAGkAAAAoAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-18T13:24:30.068Z",
+              "Title": "CreditTrackings.cshtml",
+              "DocumentMoniker": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Views\\CreditTracking\\CreditTrackings.cshtml",
+              "RelativeDocumentMoniker": "MoriWEB\\Views\\CreditTracking\\CreditTrackings.cshtml",
+              "ToolTip": "C:\\Users\\musti\\Desktop\\Mori\\MoriWEB\\MoriWEB\\Views\\CreditTracking\\CreditTrackings.cshtml",
+              "RelativeToolTip": "MoriWEB\\Views\\CreditTracking\\CreditTrackings.cshtml",
+              "ViewState": "AgIAADwAAAAAAAAAAAAuwNIAAAAaAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-10-18T14:27:18.509Z",
               "EditorCaption": ""
             }
           ]

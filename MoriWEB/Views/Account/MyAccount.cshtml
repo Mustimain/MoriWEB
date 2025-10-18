@@ -9,9 +9,7 @@
 
 <div class="container-fluid py-3">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-        <div>
-            <h3 class="mb-0">Kasa Hareketleri</h3>
-        </div>
+        <div><h3 class="mb-0">Kasa Hareketleri</h3></div>
         <span class="badge rounded-pill bg-secondary-subtle text-secondary" id="listCount">0</span>
     </div>
 
@@ -26,7 +24,7 @@
                         <input id="searchBox" type="text" class="form-control" placeholder="Ara: açıklama, ürün, müşteri, tür, tutar">
                     </div>
 
-                    <!-- Filtre + Temizle -->
+                    <!-- Filtre -->
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                         <div class="flex-grow-1">
                             <select id="FilterTypeId" class="form-select">
@@ -161,8 +159,6 @@ const listHost=document.getElementById('cashList');
 const listCount=document.getElementById('listCount');
 const searchBox=document.getElementById('searchBox');
 
-const filterType=document.getElementById('FilterTypeId');
-
 const balancePanel=document.getElementById('balancePanel');
 const balanceBadge=document.getElementById('balanceBadge');
 const balTotal=document.getElementById('balTotal');
@@ -179,7 +175,7 @@ let currentTarget = null; // {kind:'entry'|'sale', id:number}
 let lastItems = [];       // Son arama sonucunun ham listesi
 
 /* ===== Tom Select ===== */
-const ts = {}; // ts['CashTransactionTypeId'], ts['ProductSalesId'], ts['ProductEntryId'], ts['FilterTypeId']
+const ts = {};
 function initTom(selectId, options, cfg={}){
   const el=document.getElementById(selectId); if(!el) return;
   if(ts[selectId]){ ts[selectId].destroy(); ts[selectId]=null; }
@@ -306,9 +302,11 @@ async function onTargetChange(){
   const entryId= parseInt(getSelVal('ProductEntryId')||'0',10);
 
   let data=null;
-  if (saleId>0){ currentTarget={kind:'sale',id:saleId}; const r=await fetch(`/Account/SaleBalance?id=${saleId}`); if(r.ok) data=await r.json(); }
-  else if (entryId>0){ currentTarget={kind:'entry',id:entryId}; const r=await fetch(`/Account/EntryBalance?id=${entryId}`); if(r.ok) data=await r.json(); }
-  else { currentTarget=null; }
+  try{
+    if (saleId>0){ currentTarget={kind:'sale',id:saleId}; data = await ui.apiGet(`/Account/SaleBalance?id=${saleId}`); }
+    else if (entryId>0){ currentTarget={kind:'entry',id:entryId}; data = await ui.apiGet(`/Account/EntryBalance?id=${entryId}`); }
+    else { currentTarget=null; }
+  }catch(_){ ui.showToast('error','Bakiye bilgisi alınamadı.'); }
 
   currentRemain = data?.remaining ?? 0;
   renderBalance(data || null);
@@ -319,8 +317,7 @@ function renderList(items){
   listHost.innerHTML="";
   (items||[]).forEach(it=>{
     const id=g(it,'id','Id');
-    // 0 = Alış (−), 1 = Satış (+)
-    const tx=g(it,'transactionType','TransactionType');
+    const tx=g(it,'transactionType','TransactionType'); // 0=Alış(−) 1=Satış(+)
     const signChar = (Number(tx)===1) ? '+' : '−';
     const pillClass = (Number(tx)===1) ? 'pill-pos' : 'pill-neg';
 
@@ -363,12 +360,7 @@ function renderList(items){
   refreshCount();
 }
 
-/* ===== Özet hesap =====
-   0 = Alış (−), 1 = Satış (+)
-   Alış toplamı  = tx==0
-   Satış toplamı = tx==1
-   Kasa Mevcut   = Satış − Alış
-*/
+/* ===== Özet hesap ===== */
 function updateTotals(items){
   let alis=0, satis=0;
   (items||[]).forEach(it=>{
@@ -382,33 +374,16 @@ function updateTotals(items){
   sumBalEl.textContent = tl(mevcut);
 }
 
-/* ===== API ===== */
-async function apiLookups(){ const r=await fetch('/Account/Lookups'); if(!r.ok) throw new Error('Lookups alınamadı'); return r.json(); }
-async function apiList(q=""){ const r=await fetch(`/Account/Search?q=${encodeURIComponent(q)}`); if(!r.ok) throw new Error('Liste alınamadı'); return r.json(); }
-async function apiCreate(model){
-  const r=await fetch('/Account/Create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(model)});
-  if(r.status===400){ const t=await r.text().catch(()=> ''); alert(t || 'Zorunlu alanları kontrol edin.'); return {ok:false}; }
-  if(!r.ok){ const t=await r.text().catch(()=> ''); alert(t || 'Kayıt başarısız'); return {ok:false}; }
-  return {ok:true, data: await r.json()};
-}
-async function apiUpdate(id, model){
-  const r=await fetch('/Account/Update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...model, Id:id})});
-  if(r.status===404){ alert('Kayıt bulunamadı.'); return {ok:false}; }
-  if(r.status===400){ const t=await r.text().catch(()=> ''); alert(t || 'Zorunlu alanları kontrol edin.'); return {ok:false}; }
-  if(!r.ok){ const t=await r.text().catch(()=> ''); alert(t || 'Güncelleme başarısız'); return {ok:false}; }
-  return {ok:true, data: await r.json()};
-}
-async function apiDelete(id){
-  const r=await fetch('/Account/Delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({Id:id})});
-  if(r.status===404){ alert('Kayıt bulunamadı.'); return {ok:false}; }
-  if(r.status===400){ alert('Geçersiz istek (id).'); return {ok:false}; }
-  if(!r.ok){ alert('Silme başarısız'); return {ok:false}; }
-  return {ok:true};
-}
+/* ===== API (ui yardımcıları ile) ===== */
+async function apiLookups(){ try{ return await ui.apiGet('/Account/Lookups'); } catch(_){ ui.showToast('error','Lookups alınamadı.'); return {}; } }
+async function apiList(q=""){ try{ return await ui.apiGet(`/Account/Search?q=${encodeURIComponent(q)}`); } catch(_){ ui.showToast('error','Liste alınamadı.'); return []; } }
+async function apiCreate(model){ const r = await ui.apiPostJson('/Account/Create', model); if(!r.ok) ui.showToast('error', r.message || 'Kayıt başarısız.'); return r; }
+async function apiUpdate(id, model){ const r = await ui.apiPostJson('/Account/Update', {...model, Id:id}); if(!r.ok) ui.showToast('error', r.message || 'Güncelleme başarısız.'); return r; }
+async function apiDelete(id){ const r = await ui.apiPostJson('/Account/Delete', {Id:id}); if(!r.ok) ui.showToast('error', r.message || 'Silme başarısız.'); return r; }
 
 /* ===== Ham veri -> filtrele -> render ===== */
 function filterItems(items){
-  const raw = getSelVal('FilterTypeId'); // TomSelect
+  const raw = getSelVal('FilterTypeId');
   const typeId = parseInt(raw || '0', 10);
   if(!typeId) return items;
   return (items||[]).filter(x => Number(g(x,'cashTransactionTypeId','CashTransactionTypeId')||0) === typeId);
@@ -423,39 +398,22 @@ function renderFromLast(){
 (async ()=>{
   const lk = await apiLookups();
 
-  // İşlem türü (form): +/− CODE - NAME
   initTom('CashTransactionTypeId',
-    (lk.cashTypes||[]).map(x=>({
-      value:String(x.id),
-      label:`${Number(x.sign)===1?'+':'−'} ${x.code} - ${x.name}`,
-      sign:x.sign
-    })), { searchFields:['label'], placeholder:'Seçiniz...' });
+    (lk.cashTypes||[]).map(x=>({ value:String(x.id), label:`${Number(x.sign)===1?'+':'−'} ${x.code} - ${x.name}`, sign:x.sign })),
+    { searchFields:['label'], placeholder:'Seçiniz...' });
 
-  // Liste filtresi (aynı veri ama sade etiket)
   initTom('FilterTypeId',
     [{value:"",label:"İşlem türüne göre filtrele (Tümü)"}]
       .concat((lk.cashTypes||[]).map(x=>({ value:String(x.id), label:`${x.code} - ${x.name}` }))),
     { searchFields:['label'], placeholder:'İşlem türü (Tümü)' });
 
-  // Satış / Alış bağlantıları
   initTom('ProductSalesId', (lk.sales||[]).map(x=>({ value:String(x.id), label:x.text })), { searchFields:['label'], placeholder:'Seçiniz...' });
   initTom('ProductEntryId', (lk.entries||[]).map(x=>({ value:String(x.id), label:x.text })), { searchFields:['label'], placeholder:'Seçiniz...' });
 
-  // TomSelect change -> hedef bakiye paneli
-  ts['ProductSalesId']?.on('change', async ()=>{
-    ts['ProductEntryId']?.clear(true);
-    await onTargetChange();
-  });
-  ts['ProductEntryId']?.on('change', async ()=>{
-    ts['ProductSalesId']?.clear(true);
-    await onTargetChange();
-  });
+  ts['ProductSalesId']?.on('change', async ()=>{ ts['ProductEntryId']?.clear(true); await onTargetChange(); });
+  ts['ProductEntryId']?.on('change', async ()=>{ ts['ProductSalesId']?.clear(true); await onTargetChange(); });
 
-  // Filtre değişimi
-  ts['FilterTypeId']?.on('change', ()=>{
-    setSelected(0);
-    renderFromLast();
-  });
+  ts['FilterTypeId']?.on('change', ()=>{ setSelected(0); renderFromLast(); });
 
   document.getElementById('CreateDate').value = todayStr();
 
@@ -471,11 +429,9 @@ searchBox?.addEventListener('input', async function(){
   renderFromLast();
 });
 
-
 function validateForm(){
   let ok = true;
 
-  // TomSelect invalid sınırları
   const typeVal = getSelVal('CashTransactionTypeId');
   const typeBad = !typeVal;
   if(ts['CashTransactionTypeId']) ts['CashTransactionTypeId'].wrapper.classList.toggle('is-invalid', typeBad);
@@ -487,9 +443,8 @@ function validateForm(){
   amountEl.classList.toggle('is-invalid', badAmount);
   ok = ok && !badAmount;
 
-  // bakiye kontrol
   if (currentTarget && amount > currentRemain + 1e-9) {
-    alert(`Tutar kalan bakiyeyi aşamaz. Kalan: ${tl(currentRemain)}`);
+    ui.showToast('error', `Tutar kalan bakiyeyi aşamaz. Kalan: ${tl(currentRemain)}`);
     ok = false;
   }
   return ok;
@@ -499,30 +454,30 @@ btnSave?.addEventListener('click', async ()=>{
   if (!validateForm()) return;
   const r = await apiCreate(getForm());
   if(!r.ok) return;
-  alert('Kasa kaydı oluşturuldu.');
+  ui.showToast('success','Kasa kaydı oluşturuldu.');
   lastItems = await apiList(searchBox?.value || "");
   clearForm(); setSelected(0);
   renderFromLast();
 });
 
 btnUpdate?.addEventListener('click', async ()=>{
-  const id = getSelectedId(); if(!id){ alert('Seçim yok'); return; }
+  const id = getSelectedId(); if(!id){ ui.showToast('error','Seçim yok.'); return; }
   if (!validateForm()) return;
 
   const r = await apiUpdate(id, getForm());
   if(!r.ok) return;
-  alert('Güncellendi.');
+  ui.showToast('success','Güncellendi.');
   lastItems = await apiList(searchBox?.value || "");
   clearForm(); setSelected(0);
   renderFromLast();
 });
 
 btnDelete?.addEventListener('click', async ()=>{
-  const id = getSelectedId(); if(!id){ alert('Seçim yok'); return; }
-  if(!confirm('Silmek istediğinize emin misiniz?')) return;
+  const id = getSelectedId(); if(!id){ ui.showToast('error','Seçim yok.'); return; }
+  const ok = await ui.showConfirm('Silmek istediğinize emin misiniz?', 'Silme Onayı'); if(!ok) return;
   const r = await apiDelete(id);
   if(!r.ok) return;
-  alert('Silindi.');
+  ui.showToast('success','Silindi.');
   lastItems = await apiList(searchBox?.value || "");
   clearForm(); setSelected(0);
   renderFromLast();
@@ -530,45 +485,53 @@ btnDelete?.addEventListener('click', async ()=>{
 </script>
 
 <style>
+  /* Kasa liste kartları */
   .cash-item{ transition: background-color .15s ease, border-color .15s ease; }
-  .cash-item.active{
-    background-color:#f2f6ff !important;
-    color:inherit !important;
-    border-color:#d9e6ff !important;
-  }
-  .amount-pill{
-    display:inline-block;
-    padding:.25rem .6rem;
-    border-radius:999px;
-    min-width:105px;
-    text-align:right;
-    font-variant-numeric: tabular-nums;
-    box-shadow: inset 0 0 0 1px rgba(0,0,0,.04);
-  }
-  .pill-pos{ background:#e9f7ee; color:#0a7a2e; } /* + (Satış) */
-  .pill-neg{ background:#fde8ea; color:#b4232b; } /* − (Alış) */
+  .cash-item.active{ background-color:#f2f6ff !important; color:inherit !important; border-color:#d9e6ff !important; }
 
+  /* Tutar pill */
+  .amount-pill{ display:inline-block; padding:.25rem .6rem; border-radius:999px; min-width:105px; text-align:right; font-variant-numeric:tabular-nums; box-shadow:inset 0 0 0 1px rgba(0,0,0,.04); }
+  .pill-pos{ background:#e9f7ee; color:#0a7a2e; }   /* + (Satış) */
+  .pill-neg{ background:#fde8ea; color:#b4232b; }   /* − (Alış) */
+
+  /* Bakiye paneli */
   #balancePanel .list-group-item{ padding:.5rem .75rem; }
-  .id-badge{
-    color:#000 !important;
-    background-color:#f8f9fa !important;
-    border:1px solid #dee2e6 !important;
-    font-weight:500;
-  }
-  @@media (max-width: 991.98px){
-    #cashList{ max-height:40vh; overflow:auto; }
-  }
+
+  /* ID rozeti */
+  .id-badge{ color:#000 !important; background:#f8f9fa !important; border:1px solid #dee2e6 !important; font-weight:500; }
+
+  /* Mobil */
+  @@media (max-width:991.98px){ #cashList{ max-height:40vh; overflow:auto; } }
+
+  /* Hata kenarlığı */
   .is-invalid{ border-color:#dc3545 !important; }
 
-  /* Tom Select görünüm/invalid */
-  .ts-wrapper{ border:0!important; box-shadow:none!important; }
+  /* Tom Select – tek border ve OK ikonlarını tamamen gizle */
+  .ts-wrapper{ border:0 !important; box-shadow:none !important; }
   .ts-wrapper .ts-control{
-    border:1px solid var(--bs-border-color)!important;
-    border-radius:.375rem!important;
+    border:1px solid var(--bs-border-color) !important;
+    border-radius:.375rem !important;
     min-height:calc(2.5rem + 2px);
     padding:.375rem .75rem;
-    box-shadow:none!important;
+    box-shadow:none !important;
+    background-color:#fff !important;
+    background-image:none !important; /* bazı temalarda ok arka planla gelebilir */
   }
-  .ts-wrapper.is-invalid .ts-control{ border-color:#dc3545!important; }
+  .ts-wrapper.is-invalid .ts-control{ border-color:#dc3545 !important; }
+
+  /* ▼ tüm ok varyasyonları */
+  .ts-control::after,
+  .ts-control:after,
+  .ts-wrapper .ts-control::after,
+  .ts-wrapper .ts-control:after,
+  .ts-wrapper.single .ts-control::after,
+  .ts-wrapper.single .ts-control:after{
+    content:'' !important;
+    display:none !important;
+    width:0 !important;
+    height:0 !important;
+    background:none !important;
+    border:0 !important;
+  }
 </style>
 }

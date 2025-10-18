@@ -5,7 +5,6 @@
     bool IsActive(string c, string a = "") =>
         string.Equals(ctrl, c, StringComparison.OrdinalIgnoreCase) &&
         (string.IsNullOrEmpty(a) || string.Equals(act, a, StringComparison.OrdinalIgnoreCase));
-
 }
 <!DOCTYPE html>
 <html lang="tr">
@@ -14,8 +13,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>@ViewData["Title"] - MoriWEB</title>
 
+    <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+
+    <!-- Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Site styles -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/MoriWEB.styles.css" asp-append-version="true" />
 </head>
@@ -40,35 +44,36 @@
                             <i class="bi bi-box-seam"></i> Ürün Oluştur
                         </a>
                     </li>
-
                     <li class="nav-item">
                         <a class="nav-link text-white @(IsActive("ProductEntry","ProductEntries") ? "active" : "")"
                            asp-controller="ProductEntry" asp-action="ProductEntries">
                             <i class="bi bi-arrow-down-square"></i> Ürün Stok Girişi Yap
                         </a>
                     </li>
-
                     <li class="nav-item">
                         <a class="nav-link text-white @(IsActive("ProductSale","ProductSales") ? "active" : "")"
                            asp-controller="ProductSale" asp-action="ProductSales">
                             <i class="bi bi-arrow-up-square"></i> Satış Yap
                         </a>
                     </li>
-
                     <li class="nav-item">
                         <a class="nav-link text-white @(IsActive("Customer","Customers") ? "active" : "")"
                            asp-controller="Customer" asp-action="Customers">
                             <i class="bi bi-people"></i> Müşteri Ekle
                         </a>
                     </li>
-
                     <li class="nav-item">
                         <a class="nav-link text-white @(IsActive("Category","Categories") ? "active" : "")"
                            asp-controller="Category" asp-action="Categories">
                             <i class="bi bi-tags"></i> Kategori Ekle
                         </a>
+                    </li>  
+                    <li class="nav-item">
+                        <a class="nav-link text-white @(IsActive("CreditTracking","CreditTrackings") ? "active" : "")"
+                           asp-controller="CreditTracking" asp-action="CreditTrackings">
+                            <i class="bi bi-person-lines-fill"></i> Veresiye Takip
+                        </a>
                     </li>
-
                     <li class="nav-item">
                         <a class="nav-link text-white @(IsActive("Account","MyAccount") ? "active" : "")"
                            asp-controller="Account" asp-action="MyAccount">
@@ -101,15 +106,25 @@
         </div>
     </footer>
 
+    <!-- Bootstrap JS (Toast & Modal için şart) -->
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- UI Feedback Partial: Confirm Modal + Toast Container -->
+    @await Html.PartialAsync("_UiFeedback")
+
+    <!-- Ortak UI yardımcıları: window.ui.showToast / showConfirm / apiGet / apiPostJson -->
+    <script src="~/js/ui-feedback.js" asp-append-version="true"></script>
+
+    <!-- Sayfa-özel scriptler -->
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 
     <script>
-        function logout() {
-            try{
+        function logout()  {
+            try {
                 localStorage.removeItem("jwt");
                 localStorage.removeItem("jwt_exp");
-                    }catch(_){}
+                    } catch (_) { /* no-op */ }
             window.location.href = "/Login/Login";
                 }
     </script>
@@ -168,6 +183,11 @@
                     margin-right: .4rem;
                     line-height: 1;
                 }
+
+        /* Toastların her zaman görünür kalması için */
+        .toast-container {
+            z-index: 1080;
+        }
     </style>
 </body>
 </html>

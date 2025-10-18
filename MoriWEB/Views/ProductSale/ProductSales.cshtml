@@ -2,19 +2,18 @@
     ViewData["Title"] = "Stok Çıkışları";
     Layout = "_Layout";
 }
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+<!-- Sadece Tom Select CSS (_Layout Bootstrap/Icons yüklüyor) -->
 <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet" />
 
 <div class="container-fluid py-3">
   <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-    <div>
-      <h3 class="mb-0">Stok Çıkışları</h3>
-    </div>
+    <div><h3 class="mb-0">Stok Çıkışları</h3></div>
     <span class="badge rounded-pill bg-secondary-subtle text-secondary" id="listCount">0</span>
   </div>
 
   <div class="row g-3">
+    <!-- SOL: Liste -->
     <div class="col-12 col-lg-5">
       <div class="card shadow-sm border-0 h-100">
         <div class="card-body">
@@ -27,6 +26,7 @@
       </div>
     </div>
 
+    <!-- SAĞ: Form -->
     <div class="col-12 col-lg-7">
       <div class="card shadow-sm border-0 h-100">
         <div class="card-body p-4">
@@ -35,9 +35,7 @@
               <div class="rounded-circle bg-danger bg-opacity-10 p-2">
                 <i class="bi bi-arrow-up-square fs-5 text-danger"></i>
               </div>
-              <div>
-                <h5 class="mb-0" id="formTitle">Yeni Stok Çıkışı</h5>
-              </div>
+              <div><h5 class="mb-0" id="formTitle">Yeni Stok Çıkışı</h5></div>
             </div>
             <span class="badge text-bg-light border" id="selectedIdBadge" style="display:none;">ID:</span>
           </div>
@@ -45,14 +43,15 @@
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Müşteri <span class="text-danger">*</span></label>
-              <select id="CustomerId" class="form-select" required>
+              <!-- form-select SINIFI KALDIRILDI -->
+              <select id="CustomerId" required>
                 <option value="">Seçiniz...</option>
               </select>
               <div class="invalid-feedback">Müşteri seçiniz.</div>
             </div>
             <div class="col-md-6">
               <label class="form-label">Ürün (Stok) <span class="text-danger">*</span></label>
-              <select id="ProductId" class="form-select" required>
+              <select id="ProductId" required>
                 <option value="">Seçiniz...</option>
               </select>
               <div class="invalid-feedback">Ürün seçiniz.</div>
@@ -64,7 +63,7 @@
             </div>
             <div class="col-md-6">
               <label class="form-label">Ödeme Türü <span class="text-danger">*</span></label>
-              <select id="PaymentTypeId" class="form-select" required>
+              <select id="PaymentTypeId" required>
                 <option value="">Seçiniz...</option>
               </select>
               <div class="invalid-feedback">Ödeme türü seçiniz.</div>
@@ -117,6 +116,7 @@
               </button>
             </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -148,10 +148,7 @@ function initTom(selectId, items, cfg={}){
   const el=document.getElementById(selectId); if(!el) return;
   if(ts[selectId]){ ts[selectId].destroy(); ts[selectId]=null; }
   const opts=(items||[]).map(x=>({
-    id:x.id,
-    code:x.code,
-    name:x.name,
-    phone:x.phone,
+    id:x.id, code:x.code, name:x.name, phone:x.phone,
     label: (cfg.template==='product')
       ? [x.code, x.name].filter(Boolean).join(' — ')
       : (cfg.template==='customer'
@@ -255,8 +252,8 @@ function calcNetAndTotal(){
 function validatePaidNotExceedTotal(){
   const pay = parseFloat(document.getElementById('PaymentAmount').value||'0');
   const total = parseFloat(document.getElementById('TotalPrice').value||'0');
-  if (isNaN(pay) || pay < 0) { alert('Ödenen Tutar 0 veya daha büyük olmalı.'); return false; }
-  if (pay > total) { alert('Ödenen Tutar toplamı geçemez.'); return false; }
+  if (isNaN(pay) || pay < 0) { ui.showToast('error','Ödenen Tutar 0 veya daha büyük olmalı.'); return false; }
+  if (pay > total) { ui.showToast('error','Ödenen Tutar toplamı geçemez.'); return false; }
   return true;
 }
 
@@ -296,36 +293,26 @@ function renderList(items){
   refreshCount();
 }
 
-/* ==== API ==== */
-async function apiLookups(){ const r=await fetch('/ProductSale/Lookups'); if(!r.ok) throw new Error('Lookups alınamadı'); return r.json(); }
-async function apiList(q=""){ const r=await fetch(`/ProductSale/Search?q=${encodeURIComponent(q)}`); if(!r.ok) throw new Error('Liste alınamadı'); return r.json(); }
+/* ==== API (ui yardımcılarıyla) ==== */
+async function apiLookups(){
+  return await ui.apiGet('/ProductSale/Lookups');
+}
+async function apiList(q=""){
+  try{ return await ui.apiGet(`/ProductSale/Search?q=${encodeURIComponent(q)}`); }
+  catch{ return []; }
+}
 async function apiCreate(model){
   const productId = ts['ProductId']?.getValue() || document.getElementById('ProductId').value || "";
   const paymentAmount = document.getElementById('PaymentAmount').value || "0";
-  const r=await fetch(`/ProductSale/Create?productId=${encodeURIComponent(productId)}&paymentAmount=${encodeURIComponent(paymentAmount)}`,{
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(model)
-  });
-  if(r.status===400){ const t=await r.text().catch(()=> ''); alert(t || 'Zorunlu alanları kontrol edin.'); return {ok:false}; }
-  if(!r.ok){ alert('Kayıt başarısız'); return {ok:false}; }
-  return {ok:true, data: await r.json()};
+  return await ui.apiPostJson(`/ProductSale/Create?productId=${encodeURIComponent(productId)}&paymentAmount=${encodeURIComponent(paymentAmount)}`, model);
 }
 async function apiUpdate(id, model){
   const productId = ts['ProductId']?.getValue() || document.getElementById('ProductId').value || "";
   const paymentAmount = document.getElementById('PaymentAmount').value || "0";
-  const r=await fetch(`/ProductSale/Update?productId=${encodeURIComponent(productId)}&paymentAmount=${encodeURIComponent(paymentAmount)}`,{
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({...model, Id:id})
-  });
-  if(r.status===404){ alert('Kayıt bulunamadı.'); return {ok:false}; }
-  if(r.status===400){ const t=await r.text().catch(()=> ''); alert(t || 'Zorunlu alanları kontrol edin.'); return {ok:false}; }
-  if(!r.ok){ alert('Güncelleme başarısız'); return {ok:false}; }
-  return {ok:true, data: await r.json()};
+  return await ui.apiPostJson(`/ProductSale/Update?productId=${encodeURIComponent(productId)}&paymentAmount=${encodeURIComponent(paymentAmount)}`, { ...model, Id:id });
 }
 async function apiDelete(id){
-  const r=await fetch('/ProductSale/Delete',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({Id:id})});
-  if(r.status===404){ alert('Kayıt bulunamadı.'); return {ok:false}; }
-  if(r.status===400){ alert('Geçersiz istek (id).'); return {ok:false}; }
-  if(!r.ok){ alert('Silme başarısız'); return {ok:false}; }
-  return {ok:true};
+  return await ui.apiPostJson('/ProductSale/Delete', { Id:id });
 }
 
 /* ==== Validasyon ==== */
@@ -353,31 +340,29 @@ function validateForm(){
 
 /* ==== İlk yükleme ==== */
 (async ()=>{
-  const lk = await apiLookups();
-  initTom('CustomerId', lk.customers, { template:'customer', searchFields:['name','phone','label'] });
-  initTom('ProductId',  lk.products,  { template:'product',  searchFields:['code','name','label'] });
-  initTom('PaymentTypeId', lk.paymentTypes, { template:'plain', searchFields:['name','label'] });
+  const lk = await apiLookups().catch(()=>null);
+  if(lk){
+    initTom('CustomerId', lk.customers, { template:'customer', searchFields:['name','phone','label'] });
+    initTom('ProductId',  lk.products,  { template:'product',  searchFields:['code','name','label'] });
+    initTom('PaymentTypeId', lk.paymentTypes, { template:'plain', searchFields:['name','label'] });
+  }
 
   const cd=document.getElementById('CreateDate'); if(cd) cd.value=todayStr();
 
   // Ürün seçimi → stok & son etiket
-  const bindProductChange = ()=>{
-    const handler = async ()=>{
-      const val = ts['ProductId']?.getValue() || document.getElementById('ProductId').value || "";
-      const pid = parseInt(val||"0",10);
-      if(!pid){ currentStock=0; document.getElementById('stockInfo').textContent='Stok: -'; document.getElementById('LabelPrice').value=""; return; }
-      const r=await fetch(`/ProductSale/ProductInfo?productId=${pid}`); if(!r.ok) return;
-      const d=await r.json();
+  const handler = async ()=>{
+    const val = ts['ProductId']?.getValue() || document.getElementById('ProductId').value || "";
+    const pid = parseInt(val||"0",10);
+    if(!pid){ currentStock=0; document.getElementById('stockInfo').textContent='Stok: -'; document.getElementById('LabelPrice').value=""; return; }
+    try{
+      const d = await ui.apiGet(`/ProductSale/ProductInfo?productId=${pid}`);
       currentStock=d?.totalRemaining||0;
       document.getElementById('stockInfo').textContent=`Stok: ${currentStock}`;
       document.getElementById('LabelPrice').value=Number(d?.lastLabelPrice||0).toFixed(2);
-    };
-    // TomSelect event
-    if(ts['ProductId']) ts['ProductId'].on('change', handler);
-    // native fallback
-    document.getElementById('ProductId')?.addEventListener('change', handler);
+    }catch(_){}
   };
-  bindProductChange();
+  if(ts['ProductId']) ts['ProductId'].on('change', handler);
+  document.getElementById('ProductId')?.addEventListener('change', handler);
 
   const items = await apiList(""); renderList(items); setSelected(0);
 })();
@@ -388,44 +373,83 @@ searchBox?.addEventListener('input', async function(){
 });
 btnSave?.addEventListener('click', async ()=>{
   calcNetAndTotal();
-  if(!validateForm() || !validatePaidNotExceedTotal()){ alert('Zorunlu alanları kontrol edin.'); return; }
+  if(!validateForm() || !validatePaidNotExceedTotal()){
+    ui.showToast('error','Zorunlu alanları kontrol edin.');
+    return;
+  }
   const r=await apiCreate(getForm()); if(!r.ok) return;
-  alert('Stok çıkışı oluşturuldu.');
+  ui.showToast('success','Stok çıkışı oluşturuldu.');
   const items=await apiList(searchBox?.value||""); renderList(items); clearForm(); setSelected(0);
 });
 btnUpdate?.addEventListener('click', async ()=>{
-  const id=getSelectedId(); if(!id){ alert('Seçim yok'); return; }
+  const id=getSelectedId(); if(!id){ ui.showToast('error','Seçim yok.'); return; }
   calcNetAndTotal();
-  if(!validateForm() || !validatePaidNotExceedTotal()){ alert('Zorunlu alanları kontrol edin.'); return; }
+  if(!validateForm() || !validatePaidNotExceedTotal()){
+    ui.showToast('error','Zorunlu alanları kontrol edin.');
+    return;
+  }
   const r=await apiUpdate(id, getForm()); if(!r.ok) return;
-  alert('Güncellendi.');
+  ui.showToast('success','Güncellendi.');
   const items=await apiList(searchBox?.value||""); renderList(items); clearForm(); setSelected(0);
 });
 btnDelete?.addEventListener('click', async ()=>{
-  const id=getSelectedId(); if(!id){ alert('Seçim yok'); return; }
-  if(!confirm('Silmek istediğinize emin misiniz?')) return;
+  const id=getSelectedId(); if(!id){ ui.showToast('error','Seçim yok.'); return; }
+  const ok = await ui.showConfirm('Silmek istediğinize emin misiniz?', 'Silme Onayı');
+  if(!ok) return;
   const r=await apiDelete(id); if(!r.ok) return;
   const active=document.querySelector('#salesList .sale-item.active'); if(active){ active.remove(); refreshCount(); }
   clearForm(); setSelected(0);
+  ui.showToast('success','Kayıt silindi.');
 });
 </script>
 
 <style>
+/* Liste seçili satır */
 .sale-item.active{ background-color:#e7f1ff!important; color:inherit!important; border-color:#cfe2ff!important; }
 .sale-item.active *{ color:inherit!important; }
 .id-badge{ color:#000!important; background-color:#f8f9fa!important; border:1px solid #dee2e6!important; font-weight:500; }
 @@media (max-width:991.98px){ #salesList{ max-height:40vh; overflow:auto; } }
 .is-invalid{ border-color:#dc3545!important; }
 
-/* Tom Select görünüm/invalid */
-.ts-wrapper{ border:0!important; box-shadow:none!important; }
-.ts-wrapper .ts-control{
-  border:1px solid var(--bs-border-color)!important;
-  border-radius:.375rem!important;
+/* ---------- Tom Select: tek sınır, gölge/ikinci sınır yok ---------- */
+body .ts-wrapper{ width:100%; }
+body .ts-wrapper .ts-control{
+  border:1px solid var(--bs-border-color, #ced4da) !important;
+  border-radius:.375rem !important;
+  background:#fff !important;
   min-height:calc(2.5rem + 2px);
   padding:.375rem .75rem;
-  box-shadow:none!important;
+  /* ikinci çerçeve oluşturan tüm gölgeleri kapat */
+  box-shadow:none !important;
 }
-.ts-wrapper.is-invalid .ts-control{ border-color:#dc3545!important; }
+body .ts-wrapper .ts-control *{
+  box-shadow:none !important;  /* iç eleman gölgeleri de kapat */
+}
+
+/* Focus */
+body .ts-wrapper.focus .ts-control,
+body .ts-wrapper .ts-control:focus-within{
+  border-color:#86b7fe !important;
+  outline:0;
+  box-shadow:0 0 0 .25rem rgba(13,110,253,.25) !important; /* sadece dış halka */
+}
+
+/* Invalid */
+body .ts-wrapper.is-invalid .ts-control{
+  border-color:#dc3545 !important;
+  box-shadow:0 0 0 .25rem rgba(220,53,69,.25) !important;
+}
+
+/* Dropdown */
+body .ts-dropdown{
+  border:1px solid var(--bs-border-color, #ced4da) !important;
+  border-radius:.375rem !important;
+  box-shadow:0 .5rem 1rem rgba(0,0,0,.15);
+  overflow:hidden;
+}
+
+/* Input/pill hizası */
+body .ts-wrapper .ts-control input{ margin:0 !important; padding:0 !important; }
+body .ts-wrapper .item{ line-height:1.25rem; }
 </style>
 }
